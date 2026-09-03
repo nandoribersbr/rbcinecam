@@ -16,27 +16,41 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import br.com.rb8digital.rbcinecam.camera.RBCameraController
 
 @Composable
-fun CameraScreen(permissionPending: Boolean = false) {
+fun CameraScreen(
+    cameraPermissionGranted: Boolean,
+    audioPermissionGranted: Boolean
+) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val controller = remember { RBCameraController(context) }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var recording by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf(if (permissionPending) "Permissão de câmera necessária" else "PRONTO") }
+    var status by remember { mutableStateOf(if (cameraPermissionGranted) "PRONTO" else "PERMISSÃO DE CÂMERA") }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    PreviewView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                        scaleType = PreviewView.ScaleType.FILL_CENTER
-                        previewView = this
-                        if (!permissionPending) controller.bind(owner, this)
+            if (cameraPermissionGranted) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        PreviewView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                            previewView = this
+                            controller.bind(owner, this)
+                        }
                     }
-                }
-            )
+                )
+            } else {
+                Text(
+                    "Autorize a câmera para usar o RB CineCam.",
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopCenter),
@@ -51,27 +65,34 @@ fun CameraScreen(permissionPending: Boolean = false) {
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(onClick = { previewView?.let { controller.switchLens(owner, it) } }, enabled = !recording) {
-                    Text("CÂMERA")
-                }
-                Button(onClick = {
-                    if (recording) {
-                        controller.stopRecording()
-                        recording = false
-                        status = "SALVANDO"
-                    } else {
-                        controller.startRecording(withAudio = true) { event ->
-                            status = when (event) {
-                                is androidx.camera.video.VideoRecordEvent.Start -> "REC"
-                                is androidx.camera.video.VideoRecordEvent.Finalize -> if (event.hasError()) "ERRO ${event.error}" else "SALVO"
-                                else -> status
+                Button(
+                    onClick = { previewView?.let { controller.switchLens(owner, it) } },
+                    enabled = cameraPermissionGranted && !recording
+                ) { Text("CÂMERA") }
+
+                Button(
+                    onClick = {
+                        if (recording) {
+                            controller.stopRecording()
+                            recording = false
+                            status = "SALVANDO"
+                        } else {
+                            controller.startRecording(withAudio = audioPermissionGranted) { event ->
+                                status = when (event) {
+                                    is androidx.camera.video.VideoRecordEvent.Start -> "REC"
+                                    is androidx.camera.video.VideoRecordEvent.Finalize -> {
+                                        recording = false
+                                        if (event.hasError()) "ERRO ${event.error}" else "SALVO"
+                                    }
+                                    else -> status
+                                }
                             }
+                            recording = true
                         }
-                        recording = true
-                    }
-                }, enabled = !permissionPending) {
-                    Text(if (recording) "STOP" else "REC")
-                }
+                    },
+                    enabled = cameraPermissionGranted
+                ) { Text(if (recording) "STOP" else "REC") }
+
                 Text("1080p • 30", color = Color.White)
             }
         }
