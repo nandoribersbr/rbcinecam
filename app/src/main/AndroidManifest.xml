@@ -6,12 +6,15 @@
 
     <application
         android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="RB CineCam"
+        android:supportsRtl="true"
         android:theme="@style/Theme.RBCineCam">
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="unspecified"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
