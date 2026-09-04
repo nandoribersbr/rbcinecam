@@ -27,52 +27,116 @@ fun CameraScreen(cameraPermissionGranted: Boolean, audioPermissionGranted: Boole
     var status by remember { mutableStateOf("PRONTO") }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
-        Box(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
             if (cameraPermissionGranted) {
-                AndroidView(Modifier.fillMaxSize(), factory = { ctx ->
-                    PreviewView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(-1, -1)
-                        scaleType = PreviewView.ScaleType.FILL_CENTER
-                        previewView = this
-                        controller.bind(owner, this)
-                    }
-                })
+                AndroidView(
+                    factory = { ctx ->
+                        PreviewView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                            previewView = this
+                            controller.bind(owner, this)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
             } else {
-                Text("Autorize a câmera para iniciar o RB CineCam.", Modifier.align(Alignment.Center), color = Color.White)
+                Text(
+                    text = "Autorize a câmera para iniciar o RB CineCam.",
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
+                )
             }
 
             if (cameraPermissionGranted) {
-                Row(Modifier.fillMaxWidth().background(Color(0xB3000000)).padding(12.dp).align(Alignment.TopCenter), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(if (recording) "● REC" else "RB CINECAM", color = if (recording) Color.Red else Color.White, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xB3000000))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .align(Alignment.TopCenter),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (recording) "● REC" else "RB CINECAM",
+                        color = if (recording) Color.Red else Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text("1080p  |  30 FPS  |  180°  |  H.264", color = Color.White)
                     Text(status, color = if (recording) Color.Red else Color.White)
                 }
 
-                Column(Modifier.fillMaxWidth().background(Color(0xB3000000)).padding(12.dp).align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xB3000000))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .align(Alignment.BottomCenter),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
                         Control("ISO", "AUTO")
                         Control("SHUTTER", "180°")
                         Control("WB", "AUTO")
                         Control("FOCUS", "AF")
                         Control("EV", "0.0")
                     }
+
                     Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = { previewView?.let { controller.switchLens(owner, it) } }, enabled = !recording) { Text("LENTE") }
-                        Button(onClick = {
-                            if (recording) {
-                                controller.stopRecording(); recording = false; status = "SALVANDO"
-                            } else {
-                                controller.startRecording(audioPermissionGranted) { event ->
-                                    status = when (event) {
-                                        is androidx.camera.video.VideoRecordEvent.Start -> "REC"
-                                        is androidx.camera.video.VideoRecordEvent.Finalize -> { recording = false; if (event.hasError()) "ERRO" else "SALVO" }
-                                        else -> status
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { previewView?.let { controller.switchLens(owner, it) } },
+                            enabled = !recording
+                        ) {
+                            Text("LENTE")
+                        }
+
+                        Button(
+                            onClick = {
+                                if (recording) {
+                                    controller.stopRecording()
+                                    recording = false
+                                    status = "SALVANDO"
+                                } else {
+                                    controller.startRecording(audioPermissionGranted) { event ->
+                                        status = when (event) {
+                                            is androidx.camera.video.VideoRecordEvent.Start -> "REC"
+                                            is androidx.camera.video.VideoRecordEvent.Finalize -> {
+                                                recording = false
+                                                if (event.hasError()) "ERRO" else "SALVO"
+                                            }
+                                            else -> status
+                                        }
                                     }
+                                    recording = true
                                 }
-                                recording = true
-                            }
-                        }, shape = CircleShape, colors = ButtonDefaults.buttonColors(containerColor = if (recording) Color.DarkGray else Color.Red), modifier = Modifier.size(72.dp)) { Text(if (recording) "STOP" else "REC") }
+                            },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (recording) Color.DarkGray else Color.Red
+                            ),
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Text(if (recording) "STOP" else "REC")
+                        }
+
                         Text("ZEBRA  •  PEAK", color = Color.LightGray)
                     }
                 }
