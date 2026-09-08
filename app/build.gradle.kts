@@ -12,8 +12,8 @@ android {
         applicationId = "br.com.rb8digital.rbcinecam"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0-alpha"
+        versionCode = 6
+        versionName = "0.6.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -30,6 +30,7 @@ android {
 
 dependencies {
     val cameraX = "1.6.2"
+    val media3 = "1.8.0"
 
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.activity:activity-compose:1.11.0")
@@ -45,6 +46,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraX")
     implementation("androidx.camera:camera-video:$cameraX")
     implementation("androidx.camera:camera-view:$cameraX")
+
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-ui:$media3")
 
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.1")
