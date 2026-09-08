@@ -1,6 +1,7 @@
 package br.com.rb8digital.rbcinecam.ui
 
 import android.content.Intent
+import android.os.StatFs
 import android.provider.MediaStore
 import android.view.ViewGroup
 import androidx.camera.video.VideoRecordEvent
@@ -8,34 +9,17 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import br.com.rb8digital.rbcinecam.camera.RBCameraController
+import kotlinx.coroutines.delay
 
 private val Panel = Color(0xDD090B0E)
 private val PanelSoft = Color(0xC414171B)
@@ -62,25 +47,47 @@ fun CameraScreen(cameraPermissionGranted: Boolean, audioPermissionGranted: Boole
     var wb by remember { mutableStateOf("AUTO") }
     var focus by remember { mutableStateOf("AF") }
     var ev by remember { mutableStateOf("0") }
+    var elapsedSeconds by remember { mutableStateOf(0L) }
+    var showFocus by remember { mutableStateOf(false) }
+    var freeSpace by remember { mutableStateOf(storageLabel(context.filesDir.absolutePath)) }
+
+    LaunchedEffect(recording) {
+        if (recording) {
+            elapsedSeconds = 0
+            while (true) {
+                delay(1000)
+                elapsedSeconds++
+                freeSpace = storageLabel(context.filesDir.absolutePath)
+            }
+        }
+    }
+
+    LaunchedEffect(showFocus) {
+        if (showFocus) {
+            delay(900)
+            showFocus = false
+        }
+    }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         if (!cameraPermissionGranted) {
-            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
                 Text("Autorize a câmera para iniciar o RB CineCam.", color = Color.White)
             }
             return@MaterialTheme
         }
 
-        Row(Modifier.fillMaxSize().background(Color.Black)) {
+        Row(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
             LeftRail(
-                onPhoto = {
-                    controller.takePhoto { _, message -> status = message }
-                },
+                onPhoto = { controller.takePhoto { _, message -> status = message } },
                 onGallery = {
                     runCatching {
-                        context.startActivity(
-                            Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-                        )
+                        context.startActivity(Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI))
                     }.onFailure { status = "GALERIA INDISPONÍVEL" }
                 },
                 enabled = !recording
@@ -90,25 +97,32 @@ fun CameraScreen(cameraPermissionGranted: Boolean, audioPermissionGranted: Boole
                 AndroidView(
                     factory = { ctx ->
                         PreviewView(ctx).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
+                            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                             scaleType = PreviewView.ScaleType.FILL_CENTER
                             previewView = this
                             controller.bind(owner, this)
                         }
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures { offset ->
+                                previewView?.let { controller.focusAt(it, offset.x, offset.y) }
+                                showFocus = true
+                                status = "FOCO"
+                            }
+                        }
                 )
 
                 TopHud(
                     recording = recording,
                     status = status,
+                    elapsedSeconds = elapsedSeconds,
+                    freeSpace = freeSpace,
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
 
-                FocusReticle(Modifier.align(Alignment.Center))
+                if (showFocus) FocusReticle(Modifier.align(Alignment.Center))
 
                 ManualBar(
                     iso = iso,
@@ -128,6 +142,7 @@ fun CameraScreen(cameraPermissionGranted: Boolean, audioPermissionGranted: Boole
 
             RightRail(
                 recording = recording,
+                elapsedSeconds = elapsedSeconds,
                 onSwitch = {
                     previewView?.let {
                         controller.switchLens(owner, it)
@@ -142,10 +157,7 @@ fun CameraScreen(cameraPermissionGranted: Boolean, audioPermissionGranted: Boole
                     } else {
                         controller.startRecording(audioPermissionGranted) { event ->
                             when (event) {
-                                is VideoRecordEvent.Start -> {
-                                    recording = true
-                                    status = "REC"
-                                }
+                                is VideoRecordEvent.Start -> { recording = true; status = "REC" }
                                 is VideoRecordEvent.Finalize -> {
                                     recording = false
                                     status = if (event.hasError()) "ERRO AO SALVAR" else "VÍDEO SALVO"
@@ -162,11 +174,10 @@ fun CameraScreen(cameraPermissionGranted: Boolean, audioPermissionGranted: Boole
 @Composable
 private fun LeftRail(onPhoto: () -> Unit, onGallery: () -> Unit, enabled: Boolean) {
     Column(
-        Modifier.width(82.dp).fillMaxHeight().background(Panel).padding(vertical = 14.dp),
+        Modifier.width(76.dp).fillMaxHeight().background(Panel).padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
-        Text("RB", color = Red, fontWeight = FontWeight.Black, fontSize = 24.sp)
         RailStatus("●", "VÍDEO", active = true)
         RailAction("▣", "FOTO", enabled, onPhoto)
         RailAction("▶", "GALERIA", enabled, onGallery)
@@ -174,16 +185,16 @@ private fun LeftRail(onPhoto: () -> Unit, onGallery: () -> Unit, enabled: Boolea
 }
 
 @Composable
-private fun RightRail(recording: Boolean, onSwitch: () -> Unit, onRecord: () -> Unit) {
+private fun RightRail(recording: Boolean, elapsedSeconds: Long, onSwitch: () -> Unit, onRecord: () -> Unit) {
     Column(
-        Modifier.width(96.dp).fillMaxHeight().background(Panel).padding(vertical = 14.dp),
+        Modifier.width(92.dp).fillMaxHeight().background(Panel).padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
         RailAction("↻", "TROCAR", !recording, onSwitch)
         Box(
             Modifier
-                .size(78.dp)
+                .size(72.dp)
                 .clip(CircleShape)
                 .border(4.dp, Color.White, CircleShape)
                 .padding(7.dp)
@@ -192,52 +203,38 @@ private fun RightRail(recording: Boolean, onSwitch: () -> Unit, onRecord: () -> 
                 .clickable { onRecord() },
             contentAlignment = Alignment.Center
         ) {
-            Text(if (recording) "■" else "", color = Color.White, fontSize = 24.sp)
+            Text(if (recording) "■" else "", color = Color.White, fontSize = 22.sp)
         }
-        Text(if (recording) "STOP" else "REC", color = if (recording) Red else Color.White, fontWeight = FontWeight.Bold)
+        Text(if (recording) formatDuration(elapsedSeconds) else "REC", color = if (recording) Red else Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
     }
 }
 
 @Composable
-private fun TopHud(recording: Boolean, status: String, modifier: Modifier = Modifier) {
+private fun TopHud(recording: Boolean, status: String, elapsedSeconds: Long, freeSpace: String, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().background(Panel).padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("RB ", color = Red, fontWeight = FontWeight.Black, fontSize = 20.sp)
-        Text("CineCam", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Spacer(Modifier.width(18.dp))
-        Text("1080p  •  30 FPS  •  MP4", color = Color.White, fontSize = 14.sp)
+        Text("RB ", color = Red, fontWeight = FontWeight.Black, fontSize = 18.sp)
+        Text("CineCam", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Spacer(Modifier.width(16.dp))
+        Text("FHD  •  MP4", color = Color.White, fontSize = 13.sp)
+        Spacer(Modifier.width(14.dp))
+        Text("Livre $freeSpace", color = Color.LightGray, fontSize = 11.sp)
         Spacer(Modifier.weight(1f))
         Text(
-            if (recording) "● REC" else status,
+            if (recording) "● ${formatDuration(elapsedSeconds)}" else status,
             color = if (recording) Red else Accent,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             maxLines = 1
         )
     }
 }
 
 @Composable
-private fun ManualBar(
-    iso: String,
-    shutter: String,
-    wb: String,
-    focus: String,
-    ev: String,
-    enabled: Boolean,
-    onIso: () -> Unit,
-    onShutter: () -> Unit,
-    onWb: () -> Unit,
-    onFocus: () -> Unit,
-    onEv: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier.fillMaxWidth().background(Panel).padding(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+private fun ManualBar(iso: String, shutter: String, wb: String, focus: String, ev: String, enabled: Boolean, onIso: () -> Unit, onShutter: () -> Unit, onWb: () -> Unit, onFocus: () -> Unit, onEv: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().background(Panel).padding(7.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         ManualControl("ISO", iso, enabled, onIso, Modifier.weight(1f))
         ManualControl("SHUTTER", shutter, enabled, onShutter, Modifier.weight(1f))
         ManualControl("WB", wb, enabled, onWb, Modifier.weight(1f))
@@ -249,52 +246,45 @@ private fun ManualBar(
 @Composable
 private fun ManualControl(label: String, value: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier
-            .height(64.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(PanelSoft)
-            .border(1.dp, Color(0xFF34383E), RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled) { onClick() }
-            .padding(vertical = 7.dp),
+        modifier.height(58.dp).clip(RoundedCornerShape(8.dp)).background(PanelSoft).border(1.dp, Color(0xFF34383E), RoundedCornerShape(8.dp)).clickable(enabled = enabled) { onClick() }.padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(label, color = Color.LightGray, fontSize = 11.sp)
-        Text(value, color = if (enabled) Accent else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+        Text(label, color = Color.LightGray, fontSize = 10.sp)
+        Text(value, color = if (enabled) Accent else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
     }
 }
 
 @Composable
 private fun RailAction(symbol: String, label: String, enabled: Boolean, onClick: () -> Unit) {
-    Column(
-        Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(symbol, color = if (enabled) Color.White else Color.Gray, fontSize = 26.sp)
-        Spacer(Modifier.height(3.dp))
-        Text(label, color = if (enabled) Color.White else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = enabled) { onClick() }.padding(horizontal = 7.dp, vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(symbol, color = if (enabled) Color.White else Color.Gray, fontSize = 24.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(label, color = if (enabled) Color.White else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun RailStatus(symbol: String, label: String, active: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(symbol, color = if (active) Accent else Color.Gray, fontSize = 24.sp)
-        Text(label, color = if (active) Accent else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(symbol, color = if (active) Accent else Color.Gray, fontSize = 22.sp)
+        Text(label, color = if (active) Accent else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun FocusReticle(modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .size(72.dp)
-            .border(2.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(10.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("+", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Light)
+    Box(modifier.size(46.dp).border(2.dp, Accent, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+        Text("+", color = Accent, fontSize = 20.sp, fontWeight = FontWeight.Light)
     }
+}
+
+private fun formatDuration(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
+
+private fun storageLabel(path: String): String {
+    return runCatching {
+        val stat = StatFs(path)
+        val gb = stat.availableBytes / 1_073_741_824.0
+        if (gb >= 10) "%.0f GB".format(gb) else "%.1f GB".format(gb)
+    }.getOrDefault("--")
 }
