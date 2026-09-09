@@ -26,17 +26,20 @@ jobs:
           gradle-version: '8.13'
       - name: Apply RB CineCam 0.11 structural UI patch
         run: python3 scripts/patch_ui_0_11.py
-      - name: Verify structural HUD patch
+      - name: Apply RB CineCam 0.12 capture controls
+        run: python3 scripts/patch_capture_0_12.py
+      - name: Verify 0.12 capture controls
         run: |
-          grep -q 'Row(Modifier.weight(1f).fillMaxWidth())' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen.kt
-          grep -q 'height(44.dp)' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen.kt
-          grep -q 'versionName = "0.11.0-alpha"' app/build.gradle.kts
+          grep -q 'cycleQuality' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
+          grep -q 'cycleFps' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
+          grep -q 'AspectMask09' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
+          grep -q 'versionName = "0.12.0-alpha"' app/build.gradle.kts
       - name: Unit tests
         run: gradle testDebugUnitTest --stacktrace
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: RB-CineCam-0.11-Alpha-APK
+          name: RB-CineCam-0.12-Alpha-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
