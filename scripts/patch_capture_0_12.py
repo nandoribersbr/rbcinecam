@@ -116,11 +116,11 @@ if anchor not in s:
 s = s.replace(anchor, insert + anchor, 1)
 p.write_text(s, encoding='utf-8')
 
-# Build identity.
+# Build identity. This runs after patch_ui_0_11, so the file is already 0.11 / code 12.
 b = Path('app/build.gradle.kts')
 g = b.read_text(encoding='utf-8')
-g = g.replace('versionCode = 11', 'versionCode = 13')
-g = g.replace('versionName = "0.10.1-alpha"', 'versionName = "0.12.0-alpha"')
+g = g.replace('versionCode = 12', 'versionCode = 13')
+g = g.replace('versionName = "0.11.0-alpha"', 'versionName = "0.12.0-alpha"')
 b.write_text(g, encoding='utf-8')
 
 print('RB CineCam 0.12 capture controls patch applied')
