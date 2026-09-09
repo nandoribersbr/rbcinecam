@@ -30,19 +30,20 @@ jobs:
         run: python3 scripts/patch_capture_0_12.py
       - name: Apply RB CineCam 0.13 clean preview and safe reconfiguration
         run: python3 scripts/patch_capture_0_13.py
-      - name: Verify 0.13 clean preview and safe reconfiguration
+      - name: Apply RB CineCam 0.14 full-bleed translucent UI
+        run: python3 scripts/patch_ui_0_14.py
+      - name: Verify 0.14 visual contract
         run: |
+          grep -q 'CaptureOverlay14' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
+          grep -q 'ProOverlayPolicy.controlAlpha' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
+          grep -q 'versionName = "0.14.0-alpha"' app/build.gradle.kts
           grep -q 'cycleQualitySafe' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
-          grep -q 'CaptureBar13' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
-          grep -q 'CameraReconfigurePolicy' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
-          grep -q 'versionName = "0.13.0-alpha"' app/build.gradle.kts
-          ! grep -q 'Modifier.align(Alignment.TopEnd).*qualityLabel' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
       - name: Unit tests
         run: gradle testDebugUnitTest --stacktrace
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: RB-CineCam-0.13-Alpha-APK
+          name: RB-CineCam-0.14-Alpha-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
