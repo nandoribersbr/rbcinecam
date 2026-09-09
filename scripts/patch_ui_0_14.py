@@ -7,6 +7,15 @@ s = p.read_text(encoding='utf-8')
 s = s.replace('private val P09 = Color(0xF2090B0E)', 'private val P09 = Color(0x7A090B0E)')
 s = s.replace('private val PS09 = Color(0xE614171B)', 'private val PS09 = Color(0x7014171B)')
 
+# Preserve the aspect-mask implementation inserted by the 0.12 patch before replacing the screen block.
+mask_marker = '@Composable private fun AspectMask09'
+mask_start = s.find(mask_marker)
+mask_code = ''
+if mask_start >= 0:
+    mask_end = s.find('@Composable private fun CaptureBar13', mask_start)
+    if mask_end >= 0:
+        mask_code = s[mask_start:mask_end]
+
 start = s.index('@Composable\nfun CameraScreen09(')
 end = s.index('@Composable private fun CaptureBar13', start)
 
@@ -98,9 +107,7 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
                     onPhoto = { mode = CameraMode.PHOTO; status = "MODO FOTO" },
                     onGallery = { gallery = true })
 
-                Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
-                    AudioStrip09(audio, recording, recordingDb, audioPermissionGranted)
-                }
+                Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) { AudioStrip09(audio, recording, recordingDb, audioPermissionGranted) }
 
                 Box(Modifier.align(Alignment.CenterEnd).padding(end = 76.dp)) {
                     RightRail09(mode, recording, elapsed,
@@ -147,11 +154,7 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
     quality:String, fps:String, aspect:String, scope:ScopeMode09, guide:GuideMode, enabled:Boolean,
     onQuality:()->Unit, onFps:()->Unit, onAspect:()->Unit, onScope:()->Unit, onGuide:()->Unit
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(top=3.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(Modifier.fillMaxWidth().padding(top=3.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         CaptureChip14(quality, enabled, onQuality)
         CaptureChip14("${fps} FPS", enabled, onFps)
         CaptureChip14(aspect, enabled, onAspect)
@@ -161,24 +164,20 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
 }
 
 @Composable private fun CaptureChip14(value:String, enabled:Boolean, onClick:()->Unit) {
-    Surface(
-        Modifier.padding(horizontal=3.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled=enabled){onClick()},
-        color = Color.Black.copy(alpha = ProOverlayPolicy.controlAlpha),
-        shape = RoundedCornerShape(8.dp)
-    ) { Text(value, Modifier.padding(horizontal=9.dp, vertical=6.dp), color=if(enabled)A09 else Color.Gray, fontSize=9.sp, fontWeight=FontWeight.Bold, maxLines=1) }
+    Surface(Modifier.padding(horizontal=3.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled=enabled){onClick()}, color = Color.Black.copy(alpha = ProOverlayPolicy.controlAlpha), shape = RoundedCornerShape(8.dp)) {
+        Text(value, Modifier.padding(horizontal=9.dp, vertical=6.dp), color=if(enabled)A09 else Color.Gray, fontSize=9.sp, fontWeight=FontWeight.Bold, maxLines=1)
+    }
 }
 
 '''
 
-s = s[:start] + screen + s[end:]
+# Reinsert the aspect mask outside the replaced CameraScreen block.
+s = s[:start] + screen + mask_code + s[end:]
 
-# Manual bar now accepts an external modifier so it can float over the full-bleed image.
 s = s.replace(
 '@Composable private fun Manual09(iso:String,shutter:String,wb:String,focus:String,ev:String,enabled:Boolean,onIso:()->Unit,onShutter:()->Unit,onWb:()->Unit,onFocus:()->Unit,onEv:()->Unit){Row(Modifier.fillMaxWidth().background(P09).padding(7.dp)',
 '@Composable private fun Manual09(iso:String,shutter:String,wb:String,focus:String,ev:String,enabled:Boolean,onIso:()->Unit,onShutter:()->Unit,onWb:()->Unit,onFocus:()->Unit,onEv:()->Unit,modifier:Modifier=Modifier){Row(modifier.fillMaxWidth().background(Color.Transparent).padding(7.dp)'
 )
-
-# Slim translucent rails and audio meter. They remain controls over the picture, not black side panels.
 s = s.replace('Modifier.width(78.dp).fillMaxHeight().background(P09)', 'Modifier.width(78.dp).fillMaxHeight().background(Color.Transparent)')
 s = s.replace('Modifier.width(96.dp).fillMaxHeight().background(P09)', 'Modifier.width(96.dp).fillMaxHeight().background(Color.Transparent)')
 s = s.replace('Modifier.width(76.dp).fillMaxHeight().background(P09).padding(6.dp)', 'Modifier.width(72.dp).fillMaxHeight().background(Color.Black.copy(alpha = .38f)).padding(6.dp)')
