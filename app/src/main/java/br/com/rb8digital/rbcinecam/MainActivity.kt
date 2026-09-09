@@ -7,7 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import br.com.rb8digital.rbcinecam.ui.CameraScreen
+import br.com.rb8digital.rbcinecam.ui.CameraScreen09
 
 class MainActivity : ComponentActivity() {
     private val requiredPermissions = arrayOf(
@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
         ) == PackageManager.PERMISSION_GRANTED
 
         setContent {
-            CameraScreen(
+            CameraScreen09(
                 cameraPermissionGranted = cameraGranted,
                 audioPermissionGranted = audioGranted
             )
