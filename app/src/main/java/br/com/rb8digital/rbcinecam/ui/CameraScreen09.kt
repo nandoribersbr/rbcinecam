@@ -137,12 +137,23 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
                     onGallery = { gallery = true })
 
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Hud09(mode, recording, status, elapsed, free, battery, audioPermissionGranted, if (recording) recordingDb else audio.peakDb)
+                    TopHud10(
+                        mode = mode,
+                        recording = recording,
+                        status = status,
+                        elapsed = elapsed,
+                        free = free,
+                        battery = battery,
+                        audioEnabled = audioPermissionGranted,
+                        db = if (recording) recordingDb else audio.peakDb,
+                        shutter = shutter
+                    )
                     Row(Modifier.weight(1f).fillMaxWidth()) {
                         Box(Modifier.weight(1f).fillMaxHeight()) {
                             AndroidView(
                                 factory = { ctx -> PreviewView(ctx).apply {
                                     layoutParams = ViewGroup.LayoutParams(-1, -1)
+                                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                                     scaleType = PreviewView.ScaleType.FILL_CENTER
                                     preview = this
                                     controller.bind(owner, this, onScopeFrame = { f ->
