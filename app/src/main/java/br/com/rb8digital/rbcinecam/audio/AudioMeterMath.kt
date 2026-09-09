@@ -29,5 +29,10 @@ object AudioMeterMath {
         return (20.0 * log10(peak / 32768.0)).toFloat().coerceIn(FLOOR_DB, 0f)
     }
 
+    fun amplitudeDbfs(amplitude: Double): Float {
+        if (amplitude <= 0.000001) return FLOOR_DB
+        return (20.0 * log10(amplitude.coerceIn(0.0, 1.0))).toFloat().coerceIn(FLOOR_DB, 0f)
+    }
+
     fun isClipping(peakDbfs: Float): Boolean = peakDbfs >= -1f
 }
