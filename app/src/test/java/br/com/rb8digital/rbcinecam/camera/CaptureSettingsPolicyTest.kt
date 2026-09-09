@@ -6,9 +6,9 @@ import org.junit.Test
 class CaptureSettingsPolicyTest {
     @Test
     fun `cycles only through supported frame rates`() {
-        assertEquals(24, CaptureSettingsPolicy.nextFps(30, listOf(24, 30, 60)))
-        assertEquals(60, CaptureSettingsPolicy.nextFps(24, listOf(24, 30, 60)))
-        assertEquals(30, CaptureSettingsPolicy.nextFps(60, listOf(24, 30, 60)))
+        assertEquals(60, CaptureSettingsPolicy.nextFps(30, listOf(24, 30, 60)))
+        assertEquals(30, CaptureSettingsPolicy.nextFps(24, listOf(24, 30, 60)))
+        assertEquals(24, CaptureSettingsPolicy.nextFps(60, listOf(24, 30, 60)))
     }
 
     @Test
