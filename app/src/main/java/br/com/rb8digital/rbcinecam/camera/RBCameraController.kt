@@ -54,13 +54,14 @@ class RBCameraController(private val context: Context) {
     )
     private val wbLabels = listOf("AUTO", "DIA", "NUBLADO", "TUNGSTÊNIO", "FLUOR")
     private val focusFractions = listOf<Float?>(null, 0f, 0.25f, 0.5f, 0.75f, 1f)
-    private val focusLabels = listOf("AF", "∞", "25%", "50%", "75%", "MACRO")
+    private val focusLabels = listOf("AF-C", "∞", "25%", "50%", "75%", "MACRO")
 
     private var isoIndex = 0
     private var shutterIndex = 0
     private var wbIndex = 0
     private var focusIndex = 0
     private var evStops = 0
+    private var manualFocusFraction: Float? = null
 
     fun bind(owner: LifecycleOwner, previewView: PreviewView, quality: Quality = Quality.FHD) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
@@ -102,6 +103,58 @@ class RBCameraController(private val context: Context) {
             FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
         ).build()
         activeCamera.cameraControl.startFocusAndMetering(action)
+    }
+
+    fun focusContinuous(): String {
+        manualFocusFraction = null
+        focusIndex = 0
+        applyManualControls()
+        return "AF-C"
+    }
+
+    fun focusSingle(previewView: PreviewView): String {
+        val activeCamera = camera ?: return "AF-S N/D"
+        manualFocusFraction = null
+        val point = previewView.meteringPointFactory.createPoint(
+            previewView.width / 2f,
+            previewView.height / 2f
+        )
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF).build()
+        activeCamera.cameraControl.startFocusAndMetering(action)
+        return "AF-S"
+    }
+
+    fun focusLock(previewView: PreviewView): String {
+        val activeCamera = camera ?: return "LOCK N/D"
+        manualFocusFraction = null
+        val point = previewView.meteringPointFactory.createPoint(
+            previewView.width / 2f,
+            previewView.height / 2f
+        )
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+            .disableAutoCancel()
+            .build()
+        activeCamera.cameraControl.startFocusAndMetering(action)
+        return "LOCK"
+    }
+
+    fun manualFocusSupported(): Boolean {
+        val activeCamera = camera ?: return false
+        val info = Camera2CameraInfo.from(activeCamera.cameraInfo)
+        val min = info.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
+        return FocusControlPolicy.manualFocusSupported(min)
+    }
+
+    fun setManualFocus(fraction: Float): String {
+        if (!manualFocusSupported()) return "MF N/D"
+        manualFocusFraction = fraction.coerceIn(0f, 1f)
+        applyManualControls()
+        val percent = (manualFocusFraction!! * 100).roundToInt()
+        return when (percent) {
+            0 -> "∞"
+            100 -> "MACRO"
+            else -> "MF $percent%"
+        }
     }
 
     fun startRecording(withAudio: Boolean, onEvent: (VideoRecordEvent) -> Unit) {
@@ -181,6 +234,7 @@ class RBCameraController(private val context: Context) {
     }
 
     fun cycleFocus(): String {
+        manualFocusFraction = null
         focusIndex = (focusIndex + 1) % focusFractions.size
         applyManualControls()
         return focusLabels[focusIndex]
@@ -211,6 +265,7 @@ class RBCameraController(private val context: Context) {
         wbIndex = 0
         focusIndex = 0
         evStops = 0
+        manualFocusFraction = null
     }
 
     private fun applyManualControls() {
@@ -252,24 +307,35 @@ class RBCameraController(private val context: Context) {
 
         builder.setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, wbModes[wbIndex])
 
-        val focusFraction = focusFractions[focusIndex]
-        if (focusFraction == null) {
-            builder.setCaptureRequestOption(
-                CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
-            )
-        } else {
+        val requestedManual = manualFocusFraction
+        if (requestedManual != null) {
             val minFocus = cameraInfo.getCameraCharacteristic(
                 CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE
             ) ?: 0f
-            builder.setCaptureRequestOption(
-                CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_OFF
-            )
-            builder.setCaptureRequestOption(
-                CaptureRequest.LENS_FOCUS_DISTANCE,
-                minFocus * focusFraction
-            )
+            if (FocusControlPolicy.manualFocusSupported(minFocus)) {
+                builder.setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                builder.setCaptureRequestOption(
+                    CaptureRequest.LENS_FOCUS_DISTANCE,
+                    FocusControlPolicy.distanceForFraction(minFocus, requestedManual)
+                )
+            }
+        } else {
+            val focusFraction = focusFractions[focusIndex]
+            if (focusFraction == null) {
+                builder.setCaptureRequestOption(
+                    CaptureRequest.CONTROL_AF_MODE,
+                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
+                )
+            } else {
+                val minFocus = cameraInfo.getCameraCharacteristic(
+                    CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE
+                ) ?: 0f
+                builder.setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                builder.setCaptureRequestOption(
+                    CaptureRequest.LENS_FOCUS_DISTANCE,
+                    FocusControlPolicy.distanceForFraction(minFocus, focusFraction)
+                )
+            }
         }
 
         control.setCaptureRequestOptions(builder.build())
