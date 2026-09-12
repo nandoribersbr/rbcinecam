@@ -32,11 +32,15 @@ jobs:
         run: python3 scripts/patch_capture_0_13.py
       - name: Apply RB CineCam 0.14 full-bleed translucent UI
         run: python3 scripts/patch_ui_0_14.py
-      - name: Verify 0.14 visual contract
+      - name: Apply RB CineCam 0.15 transactional capture and Large Format
+        run: python3 scripts/patch_capture_0_15.py
+      - name: Verify 0.15 capture contract
         run: |
-          grep -q 'CaptureOverlay14' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
-          grep -q 'ProOverlayPolicy.controlAlpha' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
-          grep -q 'versionName = "0.14.0-alpha"' app/build.gradle.kts
+          grep -q 'versionName = "0.15.0-alpha"' app/build.gradle.kts
+          grep -q 'versionCode = 16' app/build.gradle.kts
+          grep -q 'setScopesEnabled' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
+          grep -q 'LF 1.90' app/src/main/java/br/com/rb8digital/rbcinecam/camera/CaptureSettingsPolicy.kt
+          grep -q 'LF 1.43' app/src/main/java/br/com/rb8digital/rbcinecam/camera/CaptureSettingsPolicy.kt
           grep -q 'cycleQualitySafe' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
       - name: Unit tests
         run: gradle testDebugUnitTest --stacktrace
@@ -44,6 +48,6 @@ jobs:
         run: gradle assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: RB-CineCam-0.14-Alpha-APK
+          name: RB-CineCam-0.15-Alpha-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
