@@ -8,6 +8,11 @@ s = s.replace('    private var scopeCallback: ((ScopeFrame) -> Unit)? = null\n',
 s = s.replace('''            val analysis = scopeCallback?.let { callback ->
 ''', '''            val analysis = if (scopesEnabled) scopeCallback?.let { callback ->
 ''')
+s = s.replace('''                    .also { it.setAnalyzer(analysisExecutor, ScopeAnalyzer(callback)) }
+            }
+''', '''                    .also { it.setAnalyzer(analysisExecutor, ScopeAnalyzer(callback)) }
+            } else null
+''', 1)
 
 # Do not wipe manual settings every time quality/FPS is rebound.
 s = s.replace('''            resetManualState()
