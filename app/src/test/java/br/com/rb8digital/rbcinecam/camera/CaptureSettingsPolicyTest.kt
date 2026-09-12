@@ -19,8 +19,10 @@ class CaptureSettingsPolicyTest {
     }
 
     @Test
-    fun `aspect ratios cycle through cinema choices`() {
+    fun `aspect ratios cycle through cinema and Large Format choices`() {
         assertEquals("17:9", CaptureSettingsPolicy.nextAspect("16:9"))
-        assertEquals("16:9", CaptureSettingsPolicy.nextAspect("1:1"))
+        assertEquals("LF 1.90", CaptureSettingsPolicy.nextAspect("1:1"))
+        assertEquals("LF 1.43", CaptureSettingsPolicy.nextAspect("LF 1.90"))
+        assertEquals("16:9", CaptureSettingsPolicy.nextAspect("LF 1.43"))
     }
 }
