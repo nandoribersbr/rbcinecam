@@ -1,21 +1,13 @@
 # RB CineCam
 
-Aplicativo Android de câmera cinematográfica profissional desenvolvido no ecossistema RB8 Digital.
+RB CineCam é o aplicativo de câmera cinematográfica móvel da RB8 Digital.
 
-## Objetivo
+## Versão em desenvolvimento
 
-Transformar smartphones Android compatíveis em ferramentas de captação de vídeo com controles manuais, monitoramento profissional, gravação em alta qualidade e recursos avançados condicionados às capacidades reais do hardware.
+0.17 Alpha
 
-## Linha inicial
+O código-fonte desta versão está preservado em `releases/RB-CineCam-0.17-Alpha-Source.zip`. O workflow `.github/workflows/android-debug.yml` executa os testes e compila automaticamente o APK de debug no GitHub Actions.
 
-Versão em desenvolvimento: **RB CineCam 0.1 Alpha**
+Alvo principal de homologação: Samsung Galaxy S24 FE.
 
-Stack inicial: Kotlin, Jetpack Compose, CameraX, Camera2 Interop e Media3.
-
-## Princípios
-
-- recursos reais, sem simular suporte inexistente do aparelho
-- detecção automática de resolução, fps, lentes, HDR, 10-bit, LOG e RAW
-- arquitetura modular
-- foco inicial em Android
-- evolução planejada para integração com RB VideoFire
+A versão 0.17 prioriza estabilidade, FHD/4K com fallback, FPS compatível com o hardware, controles reais de câmera, HUD cinematográfico, gravação com áudio, galeria e player interno.
