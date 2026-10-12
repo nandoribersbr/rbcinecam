@@ -36,7 +36,9 @@ jobs:
         run: python3 scripts/patch_capture_0_15.py
       - name: Apply RB CineCam 0.16 transactional capture and compact UI
         run: python3 scripts/patch_capture_ui_0_16.py
-      - name: Apply RB CineCam 0.17 professional HUD\n        run: python3 scripts/patch_hud_0_17.py\n      - name: Verify 0.16 contract
+      - name: Apply RB CineCam 0.17 professional HUD
+        run: python3 scripts/patch_hud_0_17.py
+      - name: Verify 0.16 contract
         run: |
           grep -q 'versionName = "0.17.0-alpha"' app/build.gradle.kts
           grep -q 'versionCode = 18' app/build.gradle.kts
