@@ -139,6 +139,10 @@ public final class MainActivity extends AppCompatActivity {
         gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"▦  Grade ON":"▦  Grade");message(show?"Grade ativada":"Grade desativada");});
         Button histogramButton=button("◫  RGB",controls,85);
         histogramButton.setOnClickListener(v->{showHistogram=!showHistogram;histogramButton.setText(showHistogram?"◫  RGB ON":"◫  RGB");bind();});
+        Button audioButton=button("♫ AUDIO",controls,90);
+        audioButton.setOnClickListener(v->{
+            showAudio=!showAudio;audioButton.setText(showAudio?"♫ AUDIO ON":"♫ AUDIO");updateAudioMeter();
+        });
         controls.addView(text("ZOOM"));
         SeekBar zoom=new SeekBar(this);zoom.setMax(100);controls.addView(zoom,new LinearLayout.LayoutParams(dp(115),dp(40)));
         zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
@@ -238,5 +242,13 @@ public final class MainActivity extends AppCompatActivity {
             });
         }catch(Exception e){recording=null;stopping=false;record.setEnabled(true);message("Falha ao gravar: "+e.getMessage());}
     }
-    @Override protected void onDestroy(){if(recording!=null)recording.stop();analysisExecutor.shutdown();super.onDestroy();}
+    private void updateAudioMeter(){
+        if(audioMeter==null)return;
+        audioMeter.setVisibility(showAudio?View.VISIBLE:View.GONE);
+        if(!showAudio){audioMeter.stop("MIC OFF");return;}
+        if(recording!=null||stopping){audioMeter.stop("REC: MONITOR PAUSADO");return;}
+        if(!audioGranted()){audioMeter.stop("SEM PERMISSÃO");message("Autorize o microfone");return;}
+        if(!audioMeter.start())message("Microfone indisponível");
+    }
+    @Override protected void onDestroy(){if(audioMeter!=null)audioMeter.stop("MIC OFF");if(recording!=null)recording.stop();analysisExecutor.shutdown();super.onDestroy();}
 }
