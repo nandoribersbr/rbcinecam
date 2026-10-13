@@ -68,6 +68,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean showHistogram=false;
     private ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
     private boolean ready=false;
+    private ManualCameraControls manualControls=new ManualCameraControls();
     private FrameLayout rootFrame;
     private boolean hudVisible=true;
     private LinearLayout bottomHud;
@@ -164,6 +165,15 @@ public final class MainActivity extends AppCompatActivity {
         exposureButton.setOnClickListener(v->showSliderDialog("Exposição",false));
         FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(82),dp(122),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         sideLp.rightMargin=dp(8);root.addView(sideHud,sideLp);
+        LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);manualHud.setBackgroundColor(0xDD0A111B);
+        Button isoButton=button("ISO",manualHud,68);
+        Button shutterButton=button("Shutter",manualHud,68);
+        Button wbButton=button("WB",manualHud,68);
+        isoButton.setOnClickListener(v->showManualDialog(true));
+        shutterButton.setOnClickListener(v->showManualDialog(false));
+        wbButton.setOnClickListener(v->showWhiteBalance());
+        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(82),dp(170),Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        mlp.leftMargin=dp(8);root.addView(manualHud,mlp);
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
@@ -185,6 +195,40 @@ public final class MainActivity extends AppCompatActivity {
             return true;
         });
         if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
+    }
+    private void showManualDialog(boolean iso){
+        if(!manualControls.supportsManual()){message("Controle manual não disponível nesta câmera");return;}
+        android.widget.LinearLayout pane=new android.widget.LinearLayout(this);
+        pane.setOrientation(LinearLayout.VERTICAL);pane.setPadding(dp(16),dp(8),dp(16),dp(8));
+        TextView value=text(iso?"ISO "+manualControls.minIso():"Obturador 1/60 s");pane.addView(value);
+        SeekBar slider=new SeekBar(this);slider.setMax(100);pane.addView(slider);
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onStartTrackingTouch(SeekBar b){}
+            public void onStopTrackingTouch(SeekBar b){}
+            public void onProgressChanged(SeekBar b,int n,boolean user){
+                if(!user)return;
+                int targetIso=iso?manualControls.minIso()+(manualControls.maxIso()-manualControls.minIso())*n/100:manualControls.minIso();
+                long shutter=iso?Math.min(manualControls.maxExposure(),16666667L):
+                    manualControls.minExposure()+(manualControls.maxExposure()-manualControls.minExposure())*n/100;
+                boolean ok=manualControls.setManual(targetIso,shutter);
+                value.setText(ok?(iso?"ISO "+targetIso:"Exposição "+(shutter/1000000f)+" ms"):"Recurso não aceito");
+            }
+        });
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(iso?"ISO manual":"Obturador manual")
+            .setView(pane).setNeutralButton("Auto",(d,w)->manualControls.auto())
+            .setPositiveButton("Fechar",(d,w)->{}).show();
+    }
+    private void showWhiteBalance(){
+        if(camera==null){message("Câmera indisponível");return;}
+        String[] labels={"Automático","Luz do dia","Nublado","Incandescente","Fluorescente"};
+        int[] modes={android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_AUTO,
+          android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT,
+          android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
+          android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT,
+          android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT};
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Balanço de branco")
+          .setItems(labels,(d,w)->message(manualControls.setWhiteBalance(modes[w])?"WB: "+labels[w]:"WB não suportado"))
+          .show();
     }
     private void showSliderDialog(String title,boolean isZoom){
         if(camera==null){message("Câmera não pronta");return;}
@@ -240,6 +284,7 @@ public final class MainActivity extends AppCompatActivity {
                     message("RGB indisponível nesta câmera/resolução");
                 }
             }else {camera=provider.bindToLifecycle(this,lens,p,capture);histogram.setVisibility(View.GONE);}
+            manualControls.attach(camera);
             quality.setText(actual==Quality.UHD?"4K":actual==Quality.FHD?"FHD":actual==Quality.HD?"HD":"SD");
             record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
