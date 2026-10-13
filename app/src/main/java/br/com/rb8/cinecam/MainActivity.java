@@ -60,6 +60,8 @@ public final class MainActivity extends AppCompatActivity {
     private View grid;
     private boolean stopping;
     private RgbHistogramView histogram;
+    private AudioLevelView audioMeter;
+    private boolean showAudio=false;
     private boolean showHistogram=false;
     private ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
     private boolean ready=false;
@@ -96,6 +98,10 @@ public final class MainActivity extends AppCompatActivity {
         FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(180),dp(86),Gravity.TOP|Gravity.RIGHT);
         hp.topMargin=dp(53);hp.rightMargin=dp(12);
         root.addView(histogram,hp);histogram.setVisibility(View.GONE);
+        audioMeter=new AudioLevelView(this);
+        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(176),dp(55),Gravity.LEFT|Gravity.TOP);
+        ap.topMargin=dp(55);ap.leftMargin=dp(10);
+        root.addView(audioMeter,ap);audioMeter.setVisibility(View.GONE);
         grid = new View(this) {
             android.graphics.Paint p = new android.graphics.Paint(1);
             @Override protected void onDraw(android.graphics.Canvas c) {
