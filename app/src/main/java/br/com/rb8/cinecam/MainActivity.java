@@ -150,7 +150,7 @@ public final class MainActivity extends AppCompatActivity {
         Button gridButton=button("Grade",controls,92);
         gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"Grade ON":"Grade");message(show?"Grade ativada":"Grade desativada");});
         Button histogramButton=button("RGB",controls,85);
-        histogramButton.setOnClickListener(v->{showHistogram=!showHistogram;histogramButton.setText(showHistogram?"RGB ON":"RGB");bind();});
+        histogramButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare REC para alterar RGB");return;}showHistogram=!showHistogram;histogramButton.setText(showHistogram?"RGB ON":"RGB");bind();});
         Button audioButton=button("Áudio",controls,90);
         audioButton.setOnClickListener(v->{
             showAudio=!showAudio;audioButton.setText(showAudio?"Áudio ON":"Áudio");updateAudioMeter();
@@ -207,8 +207,8 @@ public final class MainActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeekBar b){}
             public void onProgressChanged(SeekBar b,int n,boolean user){
                 if(!user)return;
-                int targetIso=iso?manualControls.minIso()+(manualControls.maxIso()-manualControls.minIso())*n/100:manualControls.minIso();
-                long shutter=iso?Math.min(manualControls.maxExposure(),16666667L):
+                int targetIso=iso?manualControls.minIso()+(manualControls.maxIso()-manualControls.minIso())*n/100:manualControls.currentIso();
+                long shutter=iso?manualControls.currentExposure():
                     manualControls.minExposure()+(manualControls.maxExposure()-manualControls.minExposure())*n/100;
                 boolean ok=manualControls.setManual(targetIso,shutter);
                 value.setText(ok?(iso?"ISO "+targetIso:"Exposição "+(shutter/1000000f)+" ms"):"Recurso não aceito");
