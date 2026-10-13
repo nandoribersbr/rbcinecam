@@ -84,9 +84,11 @@ public final class MainActivity extends AppCompatActivity {
     }
     private Button button(String title, LinearLayout bar, int width) {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
-        b.setTextColor(0xFFF0F2F5); b.setTextSize(11); b.setLetterSpacing(0.04f);
+        b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.02f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF252D39));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(width),dp(45));lp.setMargins(dp(3),0,dp(3),0);bar.addView(b,lp);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),0,dp(3),0);bar.addView(b,lp);
+        String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":"quality";
+        HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
         return b;
     }
     @Override public void onCreate(Bundle b) {
@@ -125,8 +127,8 @@ public final class MainActivity extends AppCompatActivity {
         HorizontalScrollView scroll=new HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER_VERTICAL);
         controls.setBackgroundColor(panel); controls.setPadding(dp(6),0,dp(6),0);
-        record=button("●  REC",controls,100);record.setTextColor(Color.WHITE);record.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFAF273B));record.setEnabled(false);record.setOnClickListener(v->toggle());
-        flip=button("↻  Câmera",controls,100);
+        record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFAF273B));record.setEnabled(false);record.setOnClickListener(v->toggle());
+        flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
             if(recording!=null||stopping){message("Pare a gravação para trocar de câmera");return;}
             if(provider==null||!ready){message("Câmera ainda não está pronta");return;}
@@ -139,41 +141,21 @@ public final class MainActivity extends AppCompatActivity {
         qualityButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare a gravação para mudar a resolução");return;}
             if(provider==null){message("Câmera não inicializada");return;}
             preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
-        Button gridButton=button("▦  Grade",controls,92);
-        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"▦  Grade ON":"▦  Grade");message(show?"Grade ativada":"Grade desativada");});
-        Button histogramButton=button("◫  RGB",controls,85);
-        histogramButton.setOnClickListener(v->{showHistogram=!showHistogram;histogramButton.setText(showHistogram?"◫  RGB ON":"◫  RGB");bind();});
-        Button audioButton=button("♫ AUDIO",controls,90);
+        Button gridButton=button("Grade",controls,92);
+        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"Grade ON":"Grade");message(show?"Grade ativada":"Grade desativada");});
+        Button histogramButton=button("RGB",controls,85);
+        histogramButton.setOnClickListener(v->{showHistogram=!showHistogram;histogramButton.setText(showHistogram?"RGB ON":"RGB");bind();});
+        Button audioButton=button("Áudio",controls,90);
         audioButton.setOnClickListener(v->{
-            showAudio=!showAudio;audioButton.setText(showAudio?"♫ AUDIO ON":"♫ AUDIO");updateAudioMeter();
+            showAudio=!showAudio;audioButton.setText(showAudio?"Áudio ON":"Áudio");updateAudioMeter();
         });
-        controls.addView(text("ZOOM"));
-        SeekBar zoom=new SeekBar(this);zoom.setMax(100);controls.addView(zoom,new LinearLayout.LayoutParams(dp(115),dp(40)));
-        zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar s,int n,boolean fromUser){
-                if(!fromUser)return;
-                if(camera==null||camera.getCameraInfo().getZoomState().getValue()==null){message("Zoom indisponível: câmera não pronta");return;}
-                androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
-                float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*n/100f;
-                camera.getCameraControl().setZoomRatio(ratio);
-            }
-            public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}
-        });
-        controls.addView(text("EXPOSIÇÃO"));
-        SeekBar ev=new SeekBar(this);ev.setMax(100);ev.setProgress(50);controls.addView(ev,new LinearLayout.LayoutParams(dp(110),dp(40)));
-        ev.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar s,int n,boolean fromUser){
-                if(!fromUser)return;
-                if(camera==null){message("Exposição indisponível: câmera não pronta");return;}
-                androidx.camera.core.ExposureState x=camera.getCameraInfo().getExposureState();
-                if(!x.isExposureCompensationSupported()){message("Compensação de exposição não suportada");return;}
-                int min=x.getExposureCompensationRange().getLower(), max=x.getExposureCompensationRange().getUpper();
-                camera.getCameraControl().setExposureCompensationIndex(Math.round(min+(max-min)*n/100f));
-            }
-            public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}
-        });
-        scroll.addView(controls);
-        root.addView(scroll,new FrameLayout.LayoutParams(-1,dp(60),Gravity.BOTTOM));
+
+        Button zoomButton=button("Zoom",controls,70);
+        Button exposureButton=button("EV",controls,70);
+        zoomButton.setOnClickListener(v->showSliderDialog("Zoom",true));
+        exposureButton.setOnClickListener(v->showSliderDialog("Exposição",false));
+        scroll.setFillViewport(true);scroll.addView(controls);
+        root.addView(scroll,new FrameLayout.LayoutParams(-1,dp(62),Gravity.BOTTOM));
         setContentView(root);
         preview.setOnTouchListener((v,e)->{
             if(e.getAction()==MotionEvent.ACTION_UP&&camera!=null){
@@ -184,6 +166,30 @@ public final class MainActivity extends AppCompatActivity {
             return true;
         });
         if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
+    }
+    private void showSliderDialog(String title,boolean isZoom){
+        if(camera==null){message("Câmera não pronta");return;}
+        SeekBar slider=new SeekBar(this);slider.setMax(100);slider.setProgress(isZoom?0:50);
+        android.widget.LinearLayout content=new android.widget.LinearLayout(this);
+        content.setPadding(dp(18),dp(10),dp(18),dp(12));content.addView(slider);
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onStartTrackingTouch(SeekBar b){}
+            public void onStopTrackingTouch(SeekBar b){}
+            public void onProgressChanged(SeekBar b,int n,boolean user){
+                if(!user||camera==null)return;
+                if(isZoom){
+                    androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
+                    if(z!=null)camera.getCameraControl().setZoomRatio(z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*n/100f);
+                }else{
+                    androidx.camera.core.ExposureState e=camera.getCameraInfo().getExposureState();
+                    if(e.isExposureCompensationSupported()){
+                        int min=e.getExposureCompensationRange().getLower(),max=e.getExposureCompensationRange().getUpper();
+                        camera.getCameraControl().setExposureCompensationIndex(Math.round(min+(max-min)*n/100f));
+                    }else message("EV indisponível");
+                }
+            }
+        });
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(title).setView(content).setPositiveButton("Concluir",(d,w)->{}).show();
     }
     private void message(String s){if(status!=null)status.setText(s);}
     @Override protected void onResume(){super.onResume(); if(preview!=null && !cameraGranted()) message("Autorize a câmera nas configurações do Android");}
@@ -236,11 +242,11 @@ public final class MainActivity extends AppCompatActivity {
             if(audioMeter!=null)audioMeter.stop("REC: MONITOR PAUSADO");
             recording=pending.start(ContextCompat.getMainExecutor(this),event->{
                 if(event instanceof VideoRecordEvent.Start){began=android.os.SystemClock.elapsedRealtime();updateTimer();
-                    record.setText("■  STOP");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
+                    record.setText("PARAR");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
                     recording=null;stopping=false;record.setEnabled(camera!=null);began=0;clock.removeCallbacksAndMessages(null);timerText.setText("00:00:00");updateAudioMeter();
-                    record.setText("●  REC");
+                    record.setText("REC");
                     if(fin.hasError())message("Falha na gravação: "+fin.getError());
                     else{message("Salvo em Movies/RBCineCam");Toast.makeText(this,"Vídeo salvo",Toast.LENGTH_SHORT).show();}
                 }
