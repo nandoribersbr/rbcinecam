@@ -46,6 +46,13 @@ public final class AudioLevelView extends View {
    worker.start();invalidate();return true;
   }catch(Exception e){running=false;if(capture!=null){capture.release();capture=null;}state="MIC INDISPONÍVEL";invalidate();return false;}
  }
+ public void showRecordedAmplitude(double amplitude, boolean active){
+  running=false;
+  state=active?"REC PEAK":"REC SEM ÁUDIO";
+  level=active?Math.max(0f,Math.min(1f,(float)amplitude)):0f;
+  clipping=active&&amplitude>=0.98;
+  postInvalidate();
+ }
  public synchronized void stop(String reason){
   running=false;state=reason;level=0f;clipping=false;
   AudioRecord rec=capture;capture=null;
