@@ -1,0 +1,203 @@
+package br.com.rb8.cinecam;
+
+import android.Manifest;
+import android.content.ContentValues;
+import android.content.pm.PackageManager;
+import android.content.pm.ActivityInfo;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.Camera;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.FocusMeteringAction;
+import androidx.camera.core.MeteringPoint;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.video.MediaStoreOutputOptions;
+import androidx.camera.video.PendingRecording;
+import androidx.camera.video.Quality;
+import androidx.camera.video.QualitySelector;
+import androidx.camera.video.Recorder;
+import androidx.camera.video.Recording;
+import androidx.camera.video.VideoCapture;
+import androidx.camera.video.VideoRecordEvent;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
+import java.util.List;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+
+public final class MainActivity extends AppCompatActivity {
+    private PreviewView preview;
+    private ProcessCameraProvider provider;
+    private Camera camera;
+    private VideoCapture<Recorder> capture;
+    private Recording recording;
+    private CameraSelector lens = CameraSelector.DEFAULT_BACK_CAMERA;
+    private Quality preferred = Quality.FHD;
+    private Button record, qualityButton, flip;
+    private TextView status, quality;
+    private View grid;
+    private boolean stopping;
+    private final ActivityResultLauncher<String[]> request = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                if (cameraGranted()) startCamera();
+                else message("Permissão de câmera necessária");
+            });
+    private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
+    private boolean cameraGranted() { return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED; }
+    private boolean audioGranted() { return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED; }
+    private TextView text(String s) {
+        TextView t = new TextView(this);
+        t.setText(s); t.setTextColor(Color.WHITE); t.setTextSize(12);
+        t.setGravity(Gravity.CENTER_VERTICAL); t.setPadding(dp(9),0,dp(9),0);
+        return t;
+    }
+    private Button button(String title, LinearLayout bar, int width) {
+        Button b = new Button(this); b.setText(title); b.setAllCaps(false);
+        b.setTextColor(Color.WHITE); b.setTextSize(11);
+        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF292D35));
+        bar.addView(b,new LinearLayout.LayoutParams(dp(width),dp(45)));
+        return b;
+    }
+    @Override public void onCreate(Bundle b) {
+        super.onCreate(b);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
+        FrameLayout root = new FrameLayout(this); root.setBackgroundColor(Color.BLACK);
+        preview = new PreviewView(this); preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
+        preview.setScaleType(PreviewView.ScaleType.FIT_CENTER);
+        root.addView(preview, new FrameLayout.LayoutParams(-1,-1));
+        grid = new View(this) {
+            android.graphics.Paint p = new android.graphics.Paint(1);
+            @Override protected void onDraw(android.graphics.Canvas c) {
+                p.setColor(0x77FFFFFF);p.setStrokeWidth(dp(1));
+                float w=getWidth()/3f,h=getHeight()/3f;
+                for(int i=1;i<3;i++){c.drawLine(i*w,0,i*w,getHeight(),p);c.drawLine(0,i*h,getWidth(),i*h,p);}
+            }
+        };
+        grid.setVisibility(View.GONE);
+        root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL); header.setBackgroundColor(0xEE0D121A);
+        TextView brand=text("RB CINECAM");brand.setTextColor(0xFFFFBB55);header.addView(brand);
+        quality=text("FHD");header.addView(quality);
+        status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
+        root.addView(header,new FrameLayout.LayoutParams(-1,dp(45),Gravity.TOP));
+        HorizontalScrollView scroll=new HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER_VERTICAL);
+        controls.setBackgroundColor(0xEE0D121A); controls.setPadding(dp(6),0,dp(6),0);
+        record=button("● Gravar",controls,100);record.setEnabled(false);record.setOnClickListener(v->toggle());
+        flip=button("Virar",controls,75);
+        flip.setOnClickListener(v->{
+            if(recording!=null||stopping||provider==null)return;
+            CameraSelector next = lens==CameraSelector.DEFAULT_BACK_CAMERA?CameraSelector.DEFAULT_FRONT_CAMERA:CameraSelector.DEFAULT_BACK_CAMERA;
+            try {if(!provider.hasCamera(next)){message("Câmera indisponível");return;}}
+            catch(Exception e){message("Erro ao verificar câmera");return;}
+            lens=next;bind();
+        });
+        qualityButton=button("FHD / 4K",controls,100);
+        qualityButton.setOnClickListener(v->{if(recording!=null||stopping)return;preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
+        Button gridButton=button("Grade",controls,70);
+        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"Grade ✓":"Grade");});
+        controls.addView(text("Zoom"));
+        SeekBar zoom=new SeekBar(this);zoom.setMax(100);controls.addView(zoom,new LinearLayout.LayoutParams(dp(115),dp(40)));
+        zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar s,int n,boolean fromUser){
+                if(!fromUser||camera==null||camera.getCameraInfo().getZoomState().getValue()==null)return;
+                androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
+                float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*n/100f;
+                camera.getCameraControl().setZoomRatio(ratio);
+            }
+            public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}
+        });
+        controls.addView(text("EV"));
+        SeekBar ev=new SeekBar(this);ev.setMax(100);ev.setProgress(50);controls.addView(ev,new LinearLayout.LayoutParams(dp(110),dp(40)));
+        ev.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar s,int n,boolean fromUser){
+                if(!fromUser||camera==null)return;
+                androidx.camera.core.ExposureState x=camera.getCameraInfo().getExposureState();
+                if(!x.isExposureCompensationSupported())return;
+                int min=x.getExposureCompensationRange().getLower(), max=x.getExposureCompensationRange().getUpper();
+                camera.getCameraControl().setExposureCompensationIndex(Math.round(min+(max-min)*n/100f));
+            }
+            public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}
+        });
+        scroll.addView(controls);
+        root.addView(scroll,new FrameLayout.LayoutParams(-1,dp(60),Gravity.BOTTOM));
+        setContentView(root);
+        preview.setOnTouchListener((v,e)->{
+            if(e.getAction()==MotionEvent.ACTION_UP&&camera!=null){
+                MeteringPoint point=preview.getMeteringPointFactory().createPoint(e.getX(),e.getY());
+                camera.getCameraControl().startFocusAndMetering(new FocusMeteringAction.Builder(point).setAutoCancelDuration(3,TimeUnit.SECONDS).build());
+                message("Foco ajustado");
+            }
+            return true;
+        });
+        if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
+    }
+    private void message(String s){if(status!=null)status.setText(s);}
+    private void startCamera(){
+        com.google.common.util.concurrent.ListenableFuture<ProcessCameraProvider> f=ProcessCameraProvider.getInstance(this);
+        f.addListener(()->{try{provider=f.get();bind();}catch(Exception e){message("Falha ao iniciar câmera: "+e.getMessage());}}, ContextCompat.getMainExecutor(this));
+    }
+    private void bind(){
+        if(provider==null||recording!=null||stopping)return;
+        record.setEnabled(false);capture=null;camera=null;
+        try{
+            provider.unbindAll();
+            Preview p=new Preview.Builder().build();
+            p.setSurfaceProvider(preview.getSurfaceProvider());
+            List<Quality> supported=QualitySelector.getSupportedQualities(provider.getCameraInfo(lens));
+            Quality actual=supported.contains(preferred)?preferred:supported.contains(Quality.FHD)?Quality.FHD:supported.contains(Quality.HD)?Quality.HD:supported.isEmpty()?null:supported.get(0);
+            if(actual==null){message("Sem qualidade de vídeo compatível");return;}
+            Recorder recorder=new Recorder.Builder().setQualitySelector(QualitySelector.from(actual)).build();
+            capture=VideoCapture.withOutput(recorder);
+            camera=provider.bindToLifecycle(this,lens,p,capture);
+            quality.setText(actual==Quality.UHD?"4K":actual==Quality.FHD?"FHD":actual==Quality.HD?"HD":"SD");
+            record.setEnabled(true);
+            message(actual!=preferred?"Resolução ajustada ao hardware":"Câmera pronta");
+        }catch(Exception e){message("Falha ao configurar câmera: "+e.getMessage());}
+    }
+    private void toggle(){
+        if(recording!=null){if(!stopping){stopping=true;record.setEnabled(false);recording.stop();}return;}
+        if(capture==null||camera==null){message("Câmera não está pronta");return;}
+        try{
+            ContentValues values=new ContentValues();
+            values.put(MediaStore.Video.Media.DISPLAY_NAME,"RBCineCam_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date())+".mp4");
+            values.put(MediaStore.Video.Media.MIME_TYPE,"video/mp4");
+            values.put(MediaStore.Video.Media.RELATIVE_PATH,"Movies/RBCineCam");
+            MediaStoreOutputOptions opts=new MediaStoreOutputOptions.Builder(getContentResolver(),MediaStore.Video.Media.EXTERNAL_CONTENT_URI).setContentValues(values).build();
+            PendingRecording pending=capture.getOutput().prepareRecording(this,opts);
+            if(audioGranted())pending=pending.withAudioEnabled();
+            record.setEnabled(false);
+            recording=pending.start(ContextCompat.getMainExecutor(this),event->{
+                if(event instanceof VideoRecordEvent.Start){
+                    record.setText("■ Parar");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
+                }else if(event instanceof VideoRecordEvent.Finalize){
+                    VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
+                    recording=null;stopping=false;record.setEnabled(camera!=null);
+                    record.setText("● Gravar");
+                    if(fin.hasError())message("Falha na gravação: "+fin.getError());
+                    else{message("Salvo em Movies/RBCineCam");Toast.makeText(this,"Vídeo salvo",Toast.LENGTH_SHORT).show();}
+                }
+            });
+        }catch(Exception e){recording=null;stopping=false;record.setEnabled(true);message("Falha ao gravar: "+e.getMessage());}
+    }
+    @Override protected void onDestroy(){if(recording!=null)recording.stop();super.onDestroy();}
+}
