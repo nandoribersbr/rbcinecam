@@ -12,13 +12,16 @@ public final class ManualCameraControls {
  private Range<Integer> isoRange;
  private Range<Long> exposureRange;
  private boolean manual=false;
+ private Float maxFocus=null;
+ private Float focusDistance=null;
  private Integer selectedIso=null;
  private Long selectedExposure=null;
  private int selectedWb=CaptureRequest.CONTROL_AWB_MODE_AUTO;
  public boolean attach(Camera camera){
-  this.camera=camera;manual=false;isoRange=null;exposureRange=null;selectedIso=null;selectedExposure=null;selectedWb=CaptureRequest.CONTROL_AWB_MODE_AUTO;
+  this.camera=camera;manual=false;isoRange=null;exposureRange=null;selectedIso=null;selectedExposure=null;selectedWb=CaptureRequest.CONTROL_AWB_MODE_AUTO;focusDistance=null;maxFocus=null;
   try{
    Camera2CameraInfo info=Camera2CameraInfo.from(camera.getCameraInfo());
+   maxFocus=info.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
    isoRange=info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
    exposureRange=info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
    int[] modes=info.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
@@ -51,10 +54,14 @@ public final class ManualCameraControls {
     builder.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME,selectedExposure);
    } else builder.setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON);
    builder.setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE,selectedWb);
+   if(focusDistance!=null){builder.setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_OFF);builder.setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE,focusDistance);}
    Camera2CameraControl.from(camera.getCameraControl()).setCaptureRequestOptions(builder.build());
    return true;
   }catch(Exception e){return false;}
  }
+ public boolean supportsFocus(){return camera!=null&&maxFocus!=null&&maxFocus>0f;}
+ public boolean setFocus(float proportion){if(!supportsFocus())return false;focusDistance=Math.max(0f,Math.min(1f,proportion))*maxFocus;return apply();}
+ public boolean focusAuto(){focusDistance=null;return apply();}
  public void auto(){selectedIso=null;selectedExposure=null;apply();}
  public boolean setWhiteBalance(int preset){selectedWb=preset;return apply();}
 
