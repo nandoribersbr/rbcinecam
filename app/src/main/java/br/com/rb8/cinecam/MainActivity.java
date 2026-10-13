@@ -62,6 +62,9 @@ public final class MainActivity extends AppCompatActivity {
     private RgbHistogramView histogram;
     private AudioLevelView audioMeter;
     private boolean showAudio=false;
+    private TextView timerText;
+    private final android.os.Handler clock=new android.os.Handler(android.os.Looper.getMainLooper());
+    private long began=0;
     private boolean showHistogram=false;
     private ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
     private boolean ready=false;
@@ -117,6 +120,7 @@ public final class MainActivity extends AppCompatActivity {
         TextView brand=text("◉  RB CINECAM  /  PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
         quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
+        timerText=text("00:00:00");timerText.setTextColor(amber);header.addView(timerText);
         root.addView(header,new FrameLayout.LayoutParams(-1,dp(45),Gravity.TOP));
         HorizontalScrollView scroll=new HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER_VERTICAL);
@@ -231,17 +235,23 @@ public final class MainActivity extends AppCompatActivity {
             record.setEnabled(false);
             if(audioMeter!=null)audioMeter.stop("REC: MONITOR PAUSADO");
             recording=pending.start(ContextCompat.getMainExecutor(this),event->{
-                if(event instanceof VideoRecordEvent.Start){
+                if(event instanceof VideoRecordEvent.Start){began=android.os.SystemClock.elapsedRealtime();updateTimer();
                     record.setText("■  STOP");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
-                    recording=null;stopping=false;record.setEnabled(camera!=null);updateAudioMeter();
+                    recording=null;stopping=false;record.setEnabled(camera!=null);began=0;clock.removeCallbacksAndMessages(null);timerText.setText("00:00:00");updateAudioMeter();
                     record.setText("●  REC");
                     if(fin.hasError())message("Falha na gravação: "+fin.getError());
                     else{message("Salvo em Movies/RBCineCam");Toast.makeText(this,"Vídeo salvo",Toast.LENGTH_SHORT).show();}
                 }
             });
         }catch(Exception e){recording=null;stopping=false;record.setEnabled(true);updateAudioMeter();message("Falha ao gravar: "+e.getMessage());}
+    }
+    private void updateTimer(){
+        if(began==0||timerText==null)return;
+        long t=(android.os.SystemClock.elapsedRealtime()-began)/1000;
+        timerText.setText(String.format(Locale.US,"%02d:%02d:%02d",t/3600,(t/60)%60,t%60));
+        clock.postDelayed(()->updateTimer(),500);
     }
     private void updateAudioMeter(){
         if(audioMeter==null)return;
@@ -251,5 +261,5 @@ public final class MainActivity extends AppCompatActivity {
         if(!audioGranted()){audioMeter.stop("SEM PERMISSÃO");message("Autorize o microfone");return;}
         if(!audioMeter.start())message("Microfone indisponível");
     }
-    @Override protected void onDestroy(){if(audioMeter!=null)audioMeter.stop("MIC OFF");if(recording!=null)recording.stop();analysisExecutor.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){clock.removeCallbacksAndMessages(null);if(audioMeter!=null)audioMeter.stop("MIC OFF");if(recording!=null)recording.stop();analysisExecutor.shutdown();super.onDestroy();}
 }
