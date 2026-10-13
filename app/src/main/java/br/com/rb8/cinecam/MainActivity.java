@@ -178,7 +178,7 @@ public final class MainActivity extends AppCompatActivity {
         preview.setOnTouchListener((v,e)->{
             if(e.getAction()==MotionEvent.ACTION_UP&&camera!=null){
                 MeteringPoint point=preview.getMeteringPointFactory().createPoint(e.getX(),e.getY());
-                FrameLayout.LayoutParams fp=(FrameLayout.LayoutParams)focusMarker.getLayoutParams();fp.leftMargin=(int)e.getX()-dp(27);fp.topMargin=(int)e.getY()-dp(27);focusMarker.setLayoutParams(fp);focusMarker.setVisibility(View.VISIBLE);focusMarker.postDelayed(()->focusMarker.setVisibility(View.GONE),1100);
+                FrameLayout.LayoutParams focusLp=(FrameLayout.LayoutParams)focusMarker.getLayoutParams();focusLp.leftMargin=(int)e.getX()-dp(27);focusLp.topMargin=(int)e.getY()-dp(27);focusMarker.setLayoutParams(focusLp);focusMarker.setVisibility(View.VISIBLE);focusMarker.postDelayed(()->focusMarker.setVisibility(View.GONE),1100);
                 camera.getCameraControl().startFocusAndMetering(new FocusMeteringAction.Builder(point).setAutoCancelDuration(3,TimeUnit.SECONDS).build());
                 message("Foco ajustado");
             }
