@@ -51,6 +51,8 @@ public final class MainActivity extends AppCompatActivity {
     private CameraSelector lens = CameraSelector.DEFAULT_BACK_CAMERA;
     private Quality preferred = Quality.FHD;
     private Button record, qualityButton, flip;
+    private int amber=0xFFF2B85B;
+    private int panel=0xF20C1119;
     private TextView status, quality;
     private View grid;
     private boolean stopping;
@@ -64,15 +66,15 @@ public final class MainActivity extends AppCompatActivity {
     private boolean audioGranted() { return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED; }
     private TextView text(String s) {
         TextView t = new TextView(this);
-        t.setText(s); t.setTextColor(Color.WHITE); t.setTextSize(12);
+        t.setText(s); t.setTextColor(Color.WHITE); t.setTextSize(12); t.setLetterSpacing(0.07f);
         t.setGravity(Gravity.CENTER_VERTICAL); t.setPadding(dp(9),0,dp(9),0);
         return t;
     }
     private Button button(String title, LinearLayout bar, int width) {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
-        b.setTextColor(Color.WHITE); b.setTextSize(11);
-        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF292D35));
-        bar.addView(b,new LinearLayout.LayoutParams(dp(width),dp(45)));
+        b.setTextColor(0xFFF0F2F5); b.setTextSize(11); b.setLetterSpacing(0.04f);
+        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF252D39));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(width),dp(45));lp.setMargins(dp(3),0,dp(3),0);bar.addView(b,lp);
         return b;
     }
     @Override public void onCreate(Bundle b) {
@@ -86,7 +88,7 @@ public final class MainActivity extends AppCompatActivity {
         grid = new View(this) {
             android.graphics.Paint p = new android.graphics.Paint(1);
             @Override protected void onDraw(android.graphics.Canvas c) {
-                p.setColor(0x77FFFFFF);p.setStrokeWidth(dp(1));
+                p.setColor(0x44FFFFFF);p.setStrokeWidth(dp(1));
                 float w=getWidth()/3f,h=getHeight()/3f;
                 for(int i=1;i<3;i++){c.drawLine(i*w,0,i*w,getHeight(),p);c.drawLine(0,i*h,getWidth(),i*h,p);}
             }
@@ -94,16 +96,16 @@ public final class MainActivity extends AppCompatActivity {
         grid.setVisibility(View.GONE);
         root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL); header.setBackgroundColor(0xEE0D121A);
-        TextView brand=text("RB CINECAM");brand.setTextColor(0xFFFFBB55);header.addView(brand);
-        quality=text("FHD");header.addView(quality);
+        header.setGravity(Gravity.CENTER_VERTICAL); header.setBackgroundColor(panel);
+        TextView brand=text("◉  RB CINECAM  /  PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
+        quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
         root.addView(header,new FrameLayout.LayoutParams(-1,dp(45),Gravity.TOP));
         HorizontalScrollView scroll=new HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackgroundColor(0xEE0D121A); controls.setPadding(dp(6),0,dp(6),0);
-        record=button("● Gravar",controls,100);record.setEnabled(false);record.setOnClickListener(v->toggle());
-        flip=button("Virar",controls,75);
+        controls.setBackgroundColor(panel); controls.setPadding(dp(6),0,dp(6),0);
+        record=button("●  REC",controls,100);record.setTextColor(Color.WHITE);record.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFAF273B));record.setEnabled(false);record.setOnClickListener(v->toggle());
+        flip=button("↻  Câmera",controls,100);
         flip.setOnClickListener(v->{
             if(recording!=null||stopping||provider==null)return;
             CameraSelector next = lens==CameraSelector.DEFAULT_BACK_CAMERA?CameraSelector.DEFAULT_FRONT_CAMERA:CameraSelector.DEFAULT_BACK_CAMERA;
@@ -113,9 +115,9 @@ public final class MainActivity extends AppCompatActivity {
         });
         qualityButton=button("FHD / 4K",controls,100);
         qualityButton.setOnClickListener(v->{if(recording!=null||stopping)return;preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
-        Button gridButton=button("Grade",controls,70);
-        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"Grade ✓":"Grade");});
-        controls.addView(text("Zoom"));
+        Button gridButton=button("▦  Grade",controls,92);
+        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"▦  Grade ON":"▦  Grade");});
+        controls.addView(text("ZOOM"));
         SeekBar zoom=new SeekBar(this);zoom.setMax(100);controls.addView(zoom,new LinearLayout.LayoutParams(dp(115),dp(40)));
         zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar s,int n,boolean fromUser){
@@ -126,7 +128,7 @@ public final class MainActivity extends AppCompatActivity {
             }
             public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}
         });
-        controls.addView(text("EV"));
+        controls.addView(text("EXPOSIÇÃO"));
         SeekBar ev=new SeekBar(this);ev.setMax(100);ev.setProgress(50);controls.addView(ev,new LinearLayout.LayoutParams(dp(110),dp(40)));
         ev.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar s,int n,boolean fromUser){
@@ -171,7 +173,8 @@ public final class MainActivity extends AppCompatActivity {
             camera=provider.bindToLifecycle(this,lens,p,capture);
             quality.setText(actual==Quality.UHD?"4K":actual==Quality.FHD?"FHD":actual==Quality.HD?"HD":"SD");
             record.setEnabled(true);
-            message(actual!=preferred?"Resolução ajustada ao hardware":"Câmera pronta");
+            qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
+            message(actual!=preferred?"Resolução ajustada ao hardware":"PRONTO  •  TOQUE PARA FOCO");
         }catch(Exception e){message("Falha ao configurar câmera: "+e.getMessage());}
     }
     private void toggle(){
@@ -188,11 +191,11 @@ public final class MainActivity extends AppCompatActivity {
             record.setEnabled(false);
             recording=pending.start(ContextCompat.getMainExecutor(this),event->{
                 if(event instanceof VideoRecordEvent.Start){
-                    record.setText("■ Parar");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
+                    record.setText("■  STOP");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
                     recording=null;stopping=false;record.setEnabled(camera!=null);
-                    record.setText("● Gravar");
+                    record.setText("●  REC");
                     if(fin.hasError())message("Falha na gravação: "+fin.getError());
                     else{message("Salvo em Movies/RBCineCam");Toast.makeText(this,"Vídeo salvo",Toast.LENGTH_SHORT).show();}
                 }
