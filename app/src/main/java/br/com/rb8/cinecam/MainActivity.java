@@ -169,10 +169,12 @@ public final class MainActivity extends AppCompatActivity {
         Button isoButton=button("ISO",manualHud,68);
         Button shutterButton=button("Shutter",manualHud,68);
         Button wbButton=button("WB",manualHud,68);
+        Button focusButton=button("Foco",manualHud,68);
         isoButton.setOnClickListener(v->showManualDialog(true));
         shutterButton.setOnClickListener(v->showManualDialog(false));
         wbButton.setOnClickListener(v->showWhiteBalance());
-        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(82),dp(170),Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        focusButton.setOnClickListener(v->showManualFocus());
+        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(82),dp(226),Gravity.LEFT|Gravity.CENTER_VERTICAL);
         mlp.leftMargin=dp(8);root.addView(manualHud,mlp);
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
@@ -217,6 +219,21 @@ public final class MainActivity extends AppCompatActivity {
         new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(iso?"ISO manual":"Obturador manual")
             .setView(pane).setNeutralButton("Auto",(d,w)->manualControls.auto())
             .setPositiveButton("Fechar",(d,w)->{}).show();
+    }
+    private void showManualFocus(){
+        if(!manualControls.supportsFocus()){message("Foco manual não disponível nesta câmera");return;}
+        LinearLayout pane=new LinearLayout(this);pane.setPadding(dp(16),dp(12),dp(16),dp(12));
+        SeekBar slider=new SeekBar(this);slider.setMax(100);pane.addView(slider,new LinearLayout.LayoutParams(-1,dp(44)));
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onStartTrackingTouch(SeekBar bar){}
+            public void onStopTrackingTouch(SeekBar bar){}
+            public void onProgressChanged(SeekBar bar,int n,boolean fromUser){
+                if(fromUser&&!manualControls.setFocus(n/100f))message("Falha ao ajustar foco");
+            }
+        });
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Foco manual")
+          .setView(pane).setNeutralButton("AF automático",(d,w)->manualControls.focusAuto())
+          .setPositiveButton("Concluir",(d,w)->{}).show();
     }
     private void showWhiteBalance(){
         if(camera==null){message("Câmera indisponível");return;}
