@@ -320,9 +320,12 @@ public final class MainActivity extends AppCompatActivity {
             PendingRecording pending=capture.getOutput().prepareRecording(this,opts);
             if(audioGranted())pending=pending.withAudioEnabled();
             record.setEnabled(false);
-            if(audioMeter!=null)audioMeter.stop("REC: MONITOR PAUSADO");
+            if(audioMeter!=null)audioMeter.stop("REC AGUARDANDO NÍVEIS");
             recording=pending.start(ContextCompat.getMainExecutor(this),event->{
-                if(event instanceof VideoRecordEvent.Start){began=android.os.SystemClock.elapsedRealtime();updateTimer();
+                if(event instanceof VideoRecordEvent.Status){
+                    androidx.camera.video.AudioStats stats=event.getRecordingStats().getAudioStats();
+                    if(showAudio&&audioMeter!=null){audioMeter.setVisibility(View.VISIBLE);audioMeter.showRecordedAmplitude(stats.getAudioAmplitude(),stats.hasAudio());}
+                }else if(event instanceof VideoRecordEvent.Start){began=android.os.SystemClock.elapsedRealtime();updateTimer();
                     record.setText("PARAR");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
@@ -344,7 +347,7 @@ public final class MainActivity extends AppCompatActivity {
         if(audioMeter==null)return;
         audioMeter.setVisibility(showAudio?View.VISIBLE:View.GONE);
         if(!showAudio){audioMeter.stop("MIC OFF");return;}
-        if(recording!=null||stopping){audioMeter.stop("REC: MONITOR PAUSADO");return;}
+        if(recording!=null||stopping){audioMeter.stop("REC AGUARDANDO NÍVEIS");return;}
         if(!audioGranted()){audioMeter.stop("SEM PERMISSÃO");message("Autorize o microfone");return;}
         if(!audioMeter.start())message("Microfone indisponível");
     }
