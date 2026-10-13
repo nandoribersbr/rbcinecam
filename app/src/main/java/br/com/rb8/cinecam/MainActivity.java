@@ -91,7 +91,7 @@ public final class MainActivity extends AppCompatActivity {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.02f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF252D39));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),0,dp(3),0);bar.addView(b,lp);
+        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(68),dp(48)):new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
         String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":"quality";
         HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
         return b;
