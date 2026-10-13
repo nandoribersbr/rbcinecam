@@ -68,6 +68,11 @@ public final class MainActivity extends AppCompatActivity {
     private boolean showHistogram=false;
     private ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
     private boolean ready=false;
+    private FrameLayout rootFrame;
+    private boolean hudVisible=true;
+    private LinearLayout bottomHud;
+    private android.widget.LinearLayout sideHud;
+    private android.widget.TextView focusMarker;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -95,7 +100,7 @@ public final class MainActivity extends AppCompatActivity {
         super.onCreate(b);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
-        FrameLayout root = new FrameLayout(this); root.setBackgroundColor(Color.BLACK);
+        FrameLayout root = new FrameLayout(this);rootFrame=root; root.setBackgroundColor(Color.BLACK);
         preview = new PreviewView(this); preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         preview.setScaleType(PreviewView.ScaleType.FIT_CENTER);
         root.addView(preview, new FrameLayout.LayoutParams(-1,-1));
@@ -118,15 +123,15 @@ public final class MainActivity extends AppCompatActivity {
         grid.setVisibility(View.GONE);
         root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL); header.setBackgroundColor(panel);
-        TextView brand=text("◉  RB CINECAM  /  PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
+        header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackgroundColor(0xDE090E15);
+        TextView brand=text("RB CINECAM  /  PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
         quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
         timerText=text("00:00:00");timerText.setTextColor(amber);header.addView(timerText);
-        root.addView(header,new FrameLayout.LayoutParams(-1,dp(45),Gravity.TOP));
-        HorizontalScrollView scroll=new HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackgroundColor(panel); controls.setPadding(dp(6),0,dp(6),0);
+        root.addView(header,new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP));
+        
+        LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
+        controls.setBackgroundColor(0xE80B121B); controls.setPadding(dp(10),dp(6),dp(10),dp(6));
         record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFAF273B));record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
@@ -150,16 +155,30 @@ public final class MainActivity extends AppCompatActivity {
             showAudio=!showAudio;audioButton.setText(showAudio?"Áudio ON":"Áudio");updateAudioMeter();
         });
 
-        Button zoomButton=button("Zoom",controls,70);
-        Button exposureButton=button("EV",controls,70);
+        root.addView(controls,new FrameLayout.LayoutParams(-1,dp(68),Gravity.BOTTOM));
+        sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
+        sideHud.setPadding(dp(6),dp(8),dp(6),dp(8));sideHud.setBackgroundColor(0xD80A111B);
+        Button zoomButton=button("Zoom",sideHud,70);
+        Button exposureButton=button("EV",sideHud,70);
         zoomButton.setOnClickListener(v->showSliderDialog("Zoom",true));
         exposureButton.setOnClickListener(v->showSliderDialog("Exposição",false));
-        scroll.setFillViewport(true);scroll.addView(controls);
-        root.addView(scroll,new FrameLayout.LayoutParams(-1,dp(62),Gravity.BOTTOM));
+        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(82),dp(122),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        sideLp.rightMargin=dp(8);root.addView(sideHud,sideLp);
+        focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
+        focusMarker.setVisibility(View.GONE);
+        FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
+        root.addView(focusMarker,fp);
+        brand.setOnClickListener(v->{
+            hudVisible=!hudVisible;
+            controls.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+            sideHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+            message(hudVisible?"HUD completo":"HUD limpo: toque na marca para restaurar");
+        });
         setContentView(root);
         preview.setOnTouchListener((v,e)->{
             if(e.getAction()==MotionEvent.ACTION_UP&&camera!=null){
                 MeteringPoint point=preview.getMeteringPointFactory().createPoint(e.getX(),e.getY());
+                FrameLayout.LayoutParams fp=(FrameLayout.LayoutParams)focusMarker.getLayoutParams();fp.leftMargin=(int)e.getX()-dp(27);fp.topMargin=(int)e.getY()-dp(27);focusMarker.setLayoutParams(fp);focusMarker.setVisibility(View.VISIBLE);focusMarker.postDelayed(()->focusMarker.setVisibility(View.GONE),1100);
                 camera.getCameraControl().startFocusAndMetering(new FocusMeteringAction.Builder(point).setAutoCancelDuration(3,TimeUnit.SECONDS).build());
                 message("Foco ajustado");
             }
