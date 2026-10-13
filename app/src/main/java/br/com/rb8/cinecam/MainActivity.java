@@ -56,6 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private TextView status, quality;
     private View grid;
     private boolean stopping;
+    private boolean ready=false;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -107,21 +108,25 @@ public final class MainActivity extends AppCompatActivity {
         record=button("●  REC",controls,100);record.setTextColor(Color.WHITE);record.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFAF273B));record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("↻  Câmera",controls,100);
         flip.setOnClickListener(v->{
-            if(recording!=null||stopping||provider==null)return;
+            if(recording!=null||stopping){message("Pare a gravação para trocar de câmera");return;}
+            if(provider==null||!ready){message("Câmera ainda não está pronta");return;}
             CameraSelector next = lens==CameraSelector.DEFAULT_BACK_CAMERA?CameraSelector.DEFAULT_FRONT_CAMERA:CameraSelector.DEFAULT_BACK_CAMERA;
             try {if(!provider.hasCamera(next)){message("Câmera indisponível");return;}}
             catch(Exception e){message("Erro ao verificar câmera");return;}
             lens=next;bind();
         });
         qualityButton=button("FHD / 4K",controls,100);
-        qualityButton.setOnClickListener(v->{if(recording!=null||stopping)return;preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
+        qualityButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare a gravação para mudar a resolução");return;}
+            if(provider==null){message("Câmera não inicializada");return;}
+            preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
         Button gridButton=button("▦  Grade",controls,92);
-        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"▦  Grade ON":"▦  Grade");});
+        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"▦  Grade ON":"▦  Grade");message(show?"Grade ativada":"Grade desativada");});
         controls.addView(text("ZOOM"));
         SeekBar zoom=new SeekBar(this);zoom.setMax(100);controls.addView(zoom,new LinearLayout.LayoutParams(dp(115),dp(40)));
         zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar s,int n,boolean fromUser){
-                if(!fromUser||camera==null||camera.getCameraInfo().getZoomState().getValue()==null)return;
+                if(!fromUser)return;
+                if(camera==null||camera.getCameraInfo().getZoomState().getValue()==null){message("Zoom indisponível: câmera não pronta");return;}
                 androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
                 float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*n/100f;
                 camera.getCameraControl().setZoomRatio(ratio);
@@ -132,9 +137,10 @@ public final class MainActivity extends AppCompatActivity {
         SeekBar ev=new SeekBar(this);ev.setMax(100);ev.setProgress(50);controls.addView(ev,new LinearLayout.LayoutParams(dp(110),dp(40)));
         ev.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar s,int n,boolean fromUser){
-                if(!fromUser||camera==null)return;
+                if(!fromUser)return;
+                if(camera==null){message("Exposição indisponível: câmera não pronta");return;}
                 androidx.camera.core.ExposureState x=camera.getCameraInfo().getExposureState();
-                if(!x.isExposureCompensationSupported())return;
+                if(!x.isExposureCompensationSupported()){message("Compensação de exposição não suportada");return;}
                 int min=x.getExposureCompensationRange().getLower(), max=x.getExposureCompensationRange().getUpper();
                 camera.getCameraControl().setExposureCompensationIndex(Math.round(min+(max-min)*n/100f));
             }
@@ -154,13 +160,14 @@ public final class MainActivity extends AppCompatActivity {
         if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
     }
     private void message(String s){if(status!=null)status.setText(s);}
+    @Override protected void onResume(){super.onResume(); if(preview!=null && !cameraGranted()) message("Autorize a câmera nas configurações do Android");}
     private void startCamera(){
         com.google.common.util.concurrent.ListenableFuture<ProcessCameraProvider> f=ProcessCameraProvider.getInstance(this);
         f.addListener(()->{try{provider=f.get();bind();}catch(Exception e){message("Falha ao iniciar câmera: "+e.getMessage());}}, ContextCompat.getMainExecutor(this));
     }
     private void bind(){
         if(provider==null||recording!=null||stopping)return;
-        record.setEnabled(false);capture=null;camera=null;
+        record.setEnabled(false);ready=false;capture=null;camera=null;message("Configurando câmera...");
         try{
             provider.unbindAll();
             Preview p=new Preview.Builder().build();
@@ -172,14 +179,14 @@ public final class MainActivity extends AppCompatActivity {
             capture=VideoCapture.withOutput(recorder);
             camera=provider.bindToLifecycle(this,lens,p,capture);
             quality.setText(actual==Quality.UHD?"4K":actual==Quality.FHD?"FHD":actual==Quality.HD?"HD":"SD");
-            record.setEnabled(true);
+            record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
             message(actual!=preferred?"Resolução ajustada ao hardware":"PRONTO  •  TOQUE PARA FOCO");
         }catch(Exception e){message("Falha ao configurar câmera: "+e.getMessage());}
     }
     private void toggle(){
         if(recording!=null){if(!stopping){stopping=true;record.setEnabled(false);recording.stop();}return;}
-        if(capture==null||camera==null){message("Câmera não está pronta");return;}
+        if(capture==null||camera==null||!ready){message("Câmera não está pronta");return;}
         try{
             ContentValues values=new ContentValues();
             values.put(MediaStore.Video.Media.DISPLAY_NAME,"RBCineCam_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date())+".mp4");
