@@ -21,6 +21,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
+import androidx.camera.core.ImageAnalysis;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.MeteringPoint;
@@ -56,6 +59,9 @@ public final class MainActivity extends AppCompatActivity {
     private TextView status, quality;
     private View grid;
     private boolean stopping;
+    private RgbHistogramView histogram;
+    private boolean showHistogram=false;
+    private ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
     private boolean ready=false;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -86,6 +92,10 @@ public final class MainActivity extends AppCompatActivity {
         preview = new PreviewView(this); preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         preview.setScaleType(PreviewView.ScaleType.FIT_CENTER);
         root.addView(preview, new FrameLayout.LayoutParams(-1,-1));
+        histogram=new RgbHistogramView(this);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(180),dp(86),Gravity.TOP|Gravity.RIGHT);
+        hp.topMargin=dp(53);hp.rightMargin=dp(12);
+        root.addView(histogram,hp);histogram.setVisibility(View.GONE);
         grid = new View(this) {
             android.graphics.Paint p = new android.graphics.Paint(1);
             @Override protected void onDraw(android.graphics.Canvas c) {
@@ -121,6 +131,8 @@ public final class MainActivity extends AppCompatActivity {
             preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
         Button gridButton=button("▦  Grade",controls,92);
         gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"▦  Grade ON":"▦  Grade");message(show?"Grade ativada":"Grade desativada");});
+        Button histogramButton=button("◫  RGB",controls,85);
+        histogramButton.setOnClickListener(v->{showHistogram=!showHistogram;histogramButton.setText(showHistogram?"◫  RGB ON":"◫  RGB");bind();});
         controls.addView(text("ZOOM"));
         SeekBar zoom=new SeekBar(this);zoom.setMax(100);controls.addView(zoom,new LinearLayout.LayoutParams(dp(115),dp(40)));
         zoom.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
@@ -177,7 +189,18 @@ public final class MainActivity extends AppCompatActivity {
             if(actual==null){message("Sem qualidade de vídeo compatível");return;}
             Recorder recorder=new Recorder.Builder().setQualitySelector(QualitySelector.from(actual)).build();
             capture=VideoCapture.withOutput(recorder);
-            camera=provider.bindToLifecycle(this,lens,p,capture);
+            if(showHistogram){
+                ImageAnalysis analysis=new ImageAnalysis.Builder().setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                  .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(new android.util.Size(640,360)).build();
+                analysis.setAnalyzer(analysisExecutor,image->histogram.submit(image));
+                try {camera=provider.bindToLifecycle(this,lens,p,capture,analysis);histogram.setVisibility(View.VISIBLE);}
+                catch(Exception unsupported) {
+                    provider.unbindAll();
+                    camera=provider.bindToLifecycle(this,lens,p,capture);
+                    showHistogram=false;histogram.setVisibility(View.GONE);
+                    message("RGB indisponível nesta câmera/resolução");
+                }
+            }else {camera=provider.bindToLifecycle(this,lens,p,capture);histogram.setVisibility(View.GONE);}
             quality.setText(actual==Quality.UHD?"4K":actual==Quality.FHD?"FHD":actual==Quality.HD?"HD":"SD");
             record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
@@ -209,5 +232,5 @@ public final class MainActivity extends AppCompatActivity {
             });
         }catch(Exception e){recording=null;stopping=false;record.setEnabled(true);message("Falha ao gravar: "+e.getMessage());}
     }
-    @Override protected void onDestroy(){if(recording!=null)recording.stop();super.onDestroy();}
+    @Override protected void onDestroy(){if(recording!=null)recording.stop();analysisExecutor.shutdown();super.onDestroy();}
 }
