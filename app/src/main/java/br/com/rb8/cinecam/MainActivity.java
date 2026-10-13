@@ -229,18 +229,19 @@ public final class MainActivity extends AppCompatActivity {
             PendingRecording pending=capture.getOutput().prepareRecording(this,opts);
             if(audioGranted())pending=pending.withAudioEnabled();
             record.setEnabled(false);
+            if(audioMeter!=null)audioMeter.stop("REC: MONITOR PAUSADO");
             recording=pending.start(ContextCompat.getMainExecutor(this),event->{
                 if(event instanceof VideoRecordEvent.Start){
                     record.setText("■  STOP");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
-                    recording=null;stopping=false;record.setEnabled(camera!=null);
+                    recording=null;stopping=false;record.setEnabled(camera!=null);updateAudioMeter();
                     record.setText("●  REC");
                     if(fin.hasError())message("Falha na gravação: "+fin.getError());
                     else{message("Salvo em Movies/RBCineCam");Toast.makeText(this,"Vídeo salvo",Toast.LENGTH_SHORT).show();}
                 }
             });
-        }catch(Exception e){recording=null;stopping=false;record.setEnabled(true);message("Falha ao gravar: "+e.getMessage());}
+        }catch(Exception e){recording=null;stopping=false;record.setEnabled(true);updateAudioMeter();message("Falha ao gravar: "+e.getMessage());}
     }
     private void updateAudioMeter(){
         if(audioMeter==null)return;
