@@ -78,6 +78,7 @@ public final class MainActivity extends AppCompatActivity {
     private VerticalZoomView zoomRuler;
     private TextView zoomReadout, exposureReadout;
     private Button wbHud, isoHud, shutterHud, histogramButton;
+    private CinemaFramingView cinemaFraming;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -114,6 +115,8 @@ public final class MainActivity extends AppCompatActivity {
         preview = new PreviewView(this); preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         preview.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         root.addView(preview, new FrameLayout.LayoutParams(-1,-1));
+        cinemaFraming=new CinemaFramingView(this);
+        root.addView(cinemaFraming,new FrameLayout.LayoutParams(-1,-1));
         histogram=new RgbHistogramView(this);
         FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(210),dp(100),Gravity.TOP|Gravity.LEFT);
         hp.topMargin=dp(56);hp.leftMargin=dp(12);
@@ -227,10 +230,29 @@ public final class MainActivity extends AppCompatActivity {
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
         root.addView(focusMarker,fp);
         brand.setOnClickListener(v->{
-            hudVisible=!hudVisible;
-            controls.setVisibility(hudVisible?View.VISIBLE:View.GONE);exposurePanel.setVisibility(hudVisible?View.VISIBLE:View.GONE);manualHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
-            sideHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
-            message(hudVisible?"HUD completo":"HUD limpo: toque na marca para restaurar");
+            String[] actions={"Galeria • reproduzir vídeos","Perfis de enquadramento cinematográfico","Alternar HUD limpo"};
+            new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("RB CINECAM / PRO")
+                .setItems(actions,(dialog,which)->{
+                    if(which==0){
+                        if(recording!=null||stopping){message("Pare REC antes de abrir a galeria");return;}
+                        startActivity(new android.content.Intent(this,LibraryActivity.class));
+                    }else if(which==1){
+                        String[] profiles={"Nativo (sem guia)","URSA inspirada • 2.39:1","RED inspirada • 2.40:1","IMAX inspirada • 1.90:1","Sony Cinema inspirada • 2.35:1","Anamórfico • 2.39:1"};
+                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("Perfis de enquadramento")
+                            .setSingleChoiceItems(profiles,cinemaFraming.selected(),(d,n)->{
+                                cinemaFraming.select(n);
+                                message("GUIA: "+cinemaFraming.selectedName()+" • não altera sensor nem MP4");
+                                d.dismiss();
+                            }).setNegativeButton("Fechar",null).show();
+                    }else{
+                        hudVisible=!hudVisible;
+                        controls.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+                        exposurePanel.setVisibility(View.GONE);
+                        manualHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+                        sideHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+                    }
+                }).show();
         });
         setContentView(root);
         preview.setOnTouchListener((v,e)->{
