@@ -172,11 +172,11 @@ public final class MainActivity extends AppCompatActivity {
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
         sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(4),dp(9),dp(4),dp(9));
         sideHud.setBackground(bg(0xD90A1018,0x788D9DA9,17));
-        TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);plus.setOnClickListener(v->zoomRuler.setFraction(1f));
+        TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);plus.setOnClickListener(v->zoomRuler.changeBy(0.05f));
         zoomRuler=new VerticalZoomView(this);
         sideHud.addView(zoomRuler,new LinearLayout.LayoutParams(dp(58),0,1f));
         zoomReadout=text("1.0x");zoomReadout.setTextColor(amber);zoomReadout.setGravity(Gravity.CENTER);sideHud.addView(zoomReadout);
-        TextView minus=text("−");minus.setTextSize(20);minus.setGravity(Gravity.CENTER);sideHud.addView(minus);minus.setOnClickListener(v->zoomRuler.setFraction(0f));
+        TextView minus=text("−");minus.setTextSize(20);minus.setGravity(Gravity.CENTER);sideHud.addView(minus);minus.setOnClickListener(v->zoomRuler.changeBy(-0.05f));
         zoomRuler.setListener(fraction->{
                 if(camera==null)return;
                 androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
@@ -263,8 +263,11 @@ public final class MainActivity extends AppCompatActivity {
         if(!manualControls.supportsManual()){message("Controle manual não disponível nesta câmera");return;}
         android.widget.LinearLayout pane=new android.widget.LinearLayout(this);
         pane.setOrientation(LinearLayout.VERTICAL);pane.setPadding(dp(16),dp(8),dp(16),dp(8));
-        TextView value=text(iso?"ISO "+manualControls.minIso():"Obturador 1/60 s");pane.addView(value);
-        SeekBar slider=new SeekBar(this);slider.setMax(100);pane.addView(slider);
+        TextView value=text(iso?"ISO "+manualControls.currentIso():"Obturador 1/"+Math.max(1,Math.round(1000000000d/manualControls.currentExposure()))+" s");pane.addView(value);
+        SeekBar slider=new SeekBar(this);slider.setMax(100);
+        if(iso){slider.setProgress(Math.round(100f*(manualControls.currentIso()-manualControls.minIso())/Math.max(1,manualControls.maxIso()-manualControls.minIso())));}
+        else{slider.setProgress(Math.round(100f*(manualControls.currentExposure()-manualControls.minExposure())/Math.max(1L,manualControls.maxExposure()-manualControls.minExposure())));}
+        pane.addView(slider);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onStartTrackingTouch(SeekBar b){}
             public void onStopTrackingTouch(SeekBar b){}
