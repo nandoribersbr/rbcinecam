@@ -79,6 +79,8 @@ public final class MainActivity extends AppCompatActivity {
     private TextView zoomReadout, exposureReadout;
     private Button wbHud, isoHud, shutterHud, histogramButton;
     private CinemaFramingView cinemaFraming;
+    private FloatingHud floatingHud;
+    private View hudRescue;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -231,8 +233,22 @@ public final class MainActivity extends AppCompatActivity {
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
         root.addView(focusMarker,fp);
+        floatingHud=new FloatingHud(this,root);
+        floatingHud.register("rgb",histogram);
+        floatingHud.register("audio",audioMeter);
+        floatingHud.register("manual",manualHud);
+        floatingHud.register("zoom",sideHud);
+        floatingHud.register("dock",controls);
+        floatingHud.register("top",header);
+        TextView rescue=text("☰ HUD");
+        rescue.setTextColor(amber);rescue.setBackground(bg(0xEB0B111A,0xFF8C96A0,10));
+        rescue.setOnClickListener(v->showFloatingHudSettings());
+        FrameLayout.LayoutParams rescueLp=new FrameLayout.LayoutParams(dp(82),dp(43),Gravity.TOP|Gravity.LEFT);
+        rescueLp.topMargin=dp(7);rescueLp.leftMargin=dp(8);
+        root.addView(rescue,rescueLp);hudRescue=rescue;
+        refreshHudRescue();
         brand.setOnClickListener(v->{
-            String[] actions={"Galeria • reproduzir vídeos","Perfis de enquadramento cinematográfico","Alternar HUD limpo"};
+            String[] actions={"Galeria • reproduzir vídeos","Perfis de enquadramento cinematográfico","Gerenciar HUD flutuante","Alternar HUD limpo"};
             new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("RB CINECAM / PRO")
                 .setItems(actions,(dialog,which)->{
                     if(which==0){
@@ -247,12 +263,13 @@ public final class MainActivity extends AppCompatActivity {
                                 message("GUIA: "+cinemaFraming.selectedName()+" • não altera sensor nem MP4");
                                 d.dismiss();
                             }).setNegativeButton("Fechar",null).show();
-                    }else{
+                    }else if(which==2){showFloatingHudSettings();}else{
                         hudVisible=!hudVisible;
-                        controls.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+                        floatingHud.setVisible("dock",hudVisible);
+                        floatingHud.setVisible("manual",hudVisible);
+                        floatingHud.setVisible("zoom",hudVisible);
                         exposurePanel.setVisibility(View.GONE);
-                        manualHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
-                        sideHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+                        refreshHudRescue();
                     }
                 }).show();
         });
