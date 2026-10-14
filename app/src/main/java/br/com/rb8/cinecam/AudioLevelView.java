@@ -16,7 +16,7 @@ public final class AudioLevelView extends View {
  private volatile float level=0f;
  private volatile boolean clipping=false;
  private String state="MIC OFF";
- public AudioLevelView(Context context){super(context);setBackgroundColor(0xD10D1420);}
+ public AudioLevelView(Context context){super(context);setBackgroundColor(0xD5091018);}
  public synchronized boolean start(){
   if(running)return true;
   int rate=16000;
@@ -60,13 +60,24 @@ public final class AudioLevelView extends View {
   invalidate();
  }
  @Override protected void onDraw(Canvas c){
-  super.onDraw(c);float density=getResources().getDisplayMetrics().density;
-  p.setTextSize(11*density);p.setColor(0xFFE9EEF8);c.drawText(state,8*density,15*density,p);
-  float left=8*density,top=22*density,width=Math.max(1,getWidth()-16*density),height=12*density;
-  p.setColor(0xFF263443);c.drawRoundRect(left,top,left+width,top+height,3*density,3*density,p);
-  p.setColor(clipping?0xFFFF5168:level>0.85f?0xFFFFB14A:0xFF42DEA0);
-  c.drawRoundRect(left,top,left+width*level,top+height,3*density,3*density,p);
-  p.setColor(0xFFB7C7D8);p.setTextSize(9*density);
-  c.drawText(clipping?"CLIP":"-60          -30            0 dB",left,47*density,p);
+  super.onDraw(c);float d=getResources().getDisplayMetrics().density;
+  p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d);p.setColor(0x997E8D9C);
+  c.drawRoundRect(d,d,getWidth()-d,getHeight()-d,11*d,11*d,p);
+  p.setStyle(Paint.Style.FILL);
+  p.setTextSize(10*d);p.setColor(0xFFE9EEF8);
+  c.drawText(state,9*d,15*d,p);
+  float left=9*d,top=22*d,w=Math.max(2,getWidth()-18*d),height=13*d;
+  int bars=18;float space=2*d,bar=(w-space*(bars-1))/bars;
+  for(int i=0;i<bars;i++){
+   float x=left+i*(bar+space),y=top;
+   float fraction=(i+1f)/bars;
+   p.setColor(fraction>0.9f?0xFFFF6A64:fraction>0.72f?0xFFFFC15E:0xFF42DEA0);
+   if(fraction>level)p.setColor(0xFF293847);
+   c.drawRoundRect(x,y,x+Math.max(bar,1),y+height,d,d,p);
+  }
+  p.setColor(0xFFBBC6D3);p.setTextSize(9*d);
+  c.drawText("-60",left,48*d,p);
+  c.drawText("-30",getWidth()/2f-10*d,48*d,p);
+  c.drawText(clipping?"CLIP":"0 dB",getWidth()-38*d,48*d,p);
  }
 }
