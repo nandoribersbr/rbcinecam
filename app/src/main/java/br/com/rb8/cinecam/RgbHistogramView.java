@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 public final class RgbHistogramView extends View {
     private final Paint paint = new Paint(3);
     private final int[][] bins = new int[3][64];
-    public RgbHistogramView(Context c) {super(c);setBackgroundColor(0xEB090F17);}
+    public RgbHistogramView(Context c) {super(c);setBackgroundColor(android.graphics.Color.TRANSPARENT);}
     public void submit(ImageProxy image) {
         try {
             if (image.getFormat() != android.graphics.PixelFormat.RGBA_8888) return;
@@ -34,6 +34,12 @@ public final class RgbHistogramView extends View {
     }
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
+        float viewW=getWidth(),viewH=getHeight();
+        paint.setStyle(Paint.Style.FILL);paint.setColor(0xEB090F17);
+        c.drawRoundRect(1,1,viewW-1,viewH-1,16*getResources().getDisplayMetrics().density,16*getResources().getDisplayMetrics().density,paint);
+        paint.setStyle(Paint.Style.STROKE);paint.setColor(0xAA8695A5);paint.setStrokeWidth(getResources().getDisplayMetrics().density);
+        c.drawRoundRect(1,1,viewW-1,viewH-1,16*getResources().getDisplayMetrics().density,16*getResources().getDisplayMetrics().density,paint);
+
         float w=getWidth(),h=getHeight();float d=getResources().getDisplayMetrics().density;
         float left=12*d,right=w-28*d,top=25*d,bottom=h-12*d;
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d);paint.setColor(0x997E8D9C);
