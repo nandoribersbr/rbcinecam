@@ -26,9 +26,9 @@ public final class FloatingHud {
      case MotionEvent.ACTION_DOWN: rawX=e.getRawX();rawY=e.getRawY();View panel=panels.get(id);originX=panel.getX();originY=panel.getY();return true;
      case MotionEvent.ACTION_MOVE:
       float nx=originX+e.getRawX()-rawX,ny=originY+e.getRawY()-rawY;
-      View panel=panels.get(id);
-      panel.setX(Math.max(0,Math.min(root.getWidth()-panel.getWidth(),nx)));
-      panel.setY(Math.max(0,Math.min(root.getHeight()-panel.getHeight(),ny)));return true;
+      View moving=panels.get(id);
+      moving.setX(Math.max(0,Math.min(root.getWidth()-moving.getWidth(),nx)));
+      moving.setY(Math.max(0,Math.min(root.getHeight()-moving.getHeight(),ny)));return true;
      case MotionEvent.ACTION_UP: savePosition(id,panels.get(id));return true;
      default:return true;
     }
