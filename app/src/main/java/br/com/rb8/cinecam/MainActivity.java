@@ -120,11 +120,11 @@ public final class MainActivity extends AppCompatActivity {
         cinemaFraming=new CinemaFramingView(this);
         root.addView(cinemaFraming,new FrameLayout.LayoutParams(-1,-1));
         histogram=new RgbHistogramView(this);
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(230),dp(104),Gravity.TOP|Gravity.LEFT);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(235),dp(102),Gravity.TOP|Gravity.LEFT);
         hp.topMargin=dp(56);hp.leftMargin=dp(12);
         histogram.setElevation(dp(2));root.addView(histogram,hp);histogram.setVisibility(View.VISIBLE);
         audioMeter=new AudioLevelView(this);
-        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(185),dp(86),Gravity.RIGHT|Gravity.TOP);
+        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(184),dp(87),Gravity.RIGHT|Gravity.TOP);
         ap.topMargin=dp(56);ap.rightMargin=dp(12);
         audioMeter.setElevation(dp(2));root.addView(audioMeter,ap);audioMeter.setVisibility(View.VISIBLE);
         grid = new View(this) {
@@ -150,7 +150,7 @@ public final class MainActivity extends AppCompatActivity {
         FrameLayout.LayoutParams headerLp=new FrameLayout.LayoutParams(-1,dp(49),Gravity.TOP);headerLp.leftMargin=dp(8);headerLp.rightMargin=dp(8);headerLp.topMargin=dp(3);root.addView(header,headerLp);
         
         LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackground(bg(0xF2070C12,0xA58B99A6,19)); controls.setPadding(dp(9),dp(5),dp(9),dp(5));
+        controls.setBackground(bg(0xEB080D14,0xB08794A1,19)); controls.setPadding(dp(9),dp(5),dp(9),dp(5));
         record=button("REC",controls,100);record.setTextColor(Color.WHITE);((CineHudButton)record).setRecordingStyle(true);record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
@@ -240,11 +240,11 @@ public final class MainActivity extends AppCompatActivity {
         floatingHud.register("zoom",sideHud);
         floatingHud.register("dock",controls);
         floatingHud.register("top",header);
-        TextView rescue=text("☰ HUD");
+        TextView rescue=text("✥ HUD");
         rescue.setTextColor(amber);rescue.setBackground(bg(0xEB0B111A,0xFF8C96A0,10));
         rescue.setOnClickListener(v->showFloatingHudSettings());
-        FrameLayout.LayoutParams rescueLp=new FrameLayout.LayoutParams(dp(82),dp(43),Gravity.TOP|Gravity.LEFT);
-        rescueLp.topMargin=dp(7);rescueLp.leftMargin=dp(8);
+        FrameLayout.LayoutParams rescueLp=new FrameLayout.LayoutParams(dp(83),dp(39),Gravity.RIGHT|Gravity.BOTTOM);
+        rescueLp.bottomMargin=dp(96);rescueLp.rightMargin=dp(18);
         root.addView(rescue,rescueLp);hudRescue=rescue;
         refreshHudRescue();
         brand.setOnClickListener(v->{
@@ -302,7 +302,7 @@ public final class MainActivity extends AppCompatActivity {
         actions[ids.length+2]="Mostrar todos";
         new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("HUD FLUTUANTE")
             .setItems(actions,(d,choice)->{
-                if(choice==0){floatingHud.toggleEdit();refreshHudRescue();message(floatingHud.isEditing()?"Arraste os painéis; toque em ☰ HUD para concluir":"Posições salvas");}
+                if(choice==0){floatingHud.toggleEdit();refreshHudRescue();message(floatingHud.isEditing()?"Arraste os painéis; use o botão HUD no canto inferior direito para concluir":"Posições salvas");}
                 else if(choice<=ids.length){
                     String id=ids[choice-1];
                     new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(labels[choice-1])
