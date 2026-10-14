@@ -105,8 +105,17 @@ public final class MainActivity extends AppCompatActivity {
         b.setTextColor(0xFFF0F2F5); b.setTextSize(11); b.setLetterSpacing(0.035f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         
         LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(31)):new LinearLayout.LayoutParams(0,dp(57),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
-        String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")||title.contains("FHD")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":title.equals("WB")?"ev":title.equals("ISO")?"rgb":title.contains("Foco")?"zoom":title.contains("1/")?"camera":"quality";
-        HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
+        String kind=title.equals("REC")?"rec":title.startsWith("Câmera")?"switch":
+            title.contains("4K")||title.contains("FHD")?"quality":
+            title.startsWith("Grade")?"grid":title.startsWith("RGB")?"rgb":
+            title.startsWith("Áudio")?"audio":title.startsWith("EV")?"ev":
+            title.startsWith("WB")?"wb":title.startsWith("ISO")?"iso":
+            title.startsWith("S ")||title.startsWith("1/")?"shutter":
+            title.startsWith("Foco")?"focus":"quality";
+        int size=bar.getOrientation()==LinearLayout.VERTICAL?17:19;
+        HudIcon icon=new HudIcon(kind,0xFFE8B264);
+        icon.setBounds(0,0,dp(size),dp(size));icon.setAlpha(210);
+        b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(5));
         return b;
     }
     @Override public void onCreate(Bundle b) {
