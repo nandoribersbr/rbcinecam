@@ -77,6 +77,7 @@ public final class MainActivity extends AppCompatActivity {
     private SeekBar exposureRail;
     private VerticalZoomView zoomRuler;
     private TextView zoomReadout, exposureReadout;
+    private Button wbHud, isoHud, shutterHud;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -186,9 +187,9 @@ public final class MainActivity extends AppCompatActivity {
         sideLp.rightMargin=dp(10);sideLp.topMargin=dp(135);root.addView(sideHud,sideLp);
         LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
         manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD80A111B,0x788D9DA9,17));
-        Button wbButton=button("WB",manualHud,68);
-        Button isoButton=button("ISO",manualHud,68);
-        Button shutterButton=button("1/60",manualHud,68);
+        Button wbButton=button("WB Auto",manualHud,68);wbHud=wbButton;
+        Button isoButton=button("ISO Auto",manualHud,68);isoHud=isoButton;
+        Button shutterButton=button("S Auto",manualHud,68);shutterHud=shutterButton;
         Button focusButton=button("Foco",manualHud,68);
         wbButton.setOnClickListener(v->showWhiteBalance());
         isoButton.setOnClickListener(v->showManualDialog(true));
@@ -243,6 +244,21 @@ public final class MainActivity extends AppCompatActivity {
         });
         if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
     }
+    private void syncManualHud(){
+        if(wbHud==null||isoHud==null||shutterHud==null)return;
+        if(!manualControls.isManualExposure()){isoHud.setText("ISO Auto");shutterHud.setText("S Auto");}
+        else{
+            isoHud.setText("ISO "+manualControls.currentIso());
+            long ns=manualControls.currentExposure();
+            shutterHud.setText("1/"+Math.max(1,Math.round(1000000000d/ns)));
+        }
+        int mode=manualControls.currentWb();
+        String wb=mode==android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_AUTO?"Auto":
+          mode==android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT?"Dia":
+          mode==android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT?"Nuvens":
+          mode==android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT?"Tungst.":"Fluor.";
+        wbHud.setText("WB "+wb);
+    }
     private void showManualDialog(boolean iso){
         if(!manualControls.supportsManual()){message("Controle manual não disponível nesta câmera");return;}
         android.widget.LinearLayout pane=new android.widget.LinearLayout(this);
@@ -259,10 +275,11 @@ public final class MainActivity extends AppCompatActivity {
                     manualControls.minExposure()+(manualControls.maxExposure()-manualControls.minExposure())*n/100;
                 boolean ok=manualControls.setManual(targetIso,shutter);
                 value.setText(ok?(iso?"ISO "+targetIso:"Exposição "+(shutter/1000000f)+" ms"):"Recurso não aceito");
+                if(ok)syncManualHud();
             }
         });
         new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(iso?"ISO manual":"Obturador manual")
-            .setView(pane).setNeutralButton("Auto",(d,w)->manualControls.auto())
+            .setView(pane).setNeutralButton("Auto",(d,w)->{manualControls.auto();syncManualHud();})
             .setPositiveButton("Fechar",(d,w)->{}).show();
     }
     private void showManualFocus(){
@@ -289,7 +306,7 @@ public final class MainActivity extends AppCompatActivity {
           android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT,
           android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT};
         new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Balanço de branco")
-          .setItems(labels,(d,w)->message(manualControls.setWhiteBalance(modes[w])?"WB: "+labels[w]:"WB não suportado"))
+          .setItems(labels,(d,w)->{boolean ok=manualControls.setWhiteBalance(modes[w]);if(ok)syncManualHud();message(ok?"WB: "+labels[w]:"WB não suportado");})
           .show();
     }
     private void showSliderDialog(String title,boolean isZoom){
@@ -347,6 +364,7 @@ public final class MainActivity extends AppCompatActivity {
                 }
             }else {camera=provider.bindToLifecycle(this,lens,p,capture);histogram.setVisibility(View.GONE);}
             manualControls.attach(camera);
+            syncManualHud();
             quality.setText(actual==Quality.UHD?"4K  3840 × 2160":actual==Quality.FHD?"FHD  1920 × 1080":actual==Quality.HD?"HD  1280 × 720":"SD");
             record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
