@@ -99,7 +99,7 @@ public final class MainActivity extends AppCompatActivity {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.035f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         b.setBackground(bg(0xDF101820,0x507F909E,11));
-        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(42)):new LinearLayout.LayoutParams(0,dp(43),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
+        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(31)):new LinearLayout.LayoutParams(0,dp(43),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
         String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")||title.contains("FHD")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":title.equals("WB")?"ev":title.equals("ISO")?"rgb":title.contains("Foco")?"zoom":title.contains("1/")?"camera":"quality";
         HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
         return b;
@@ -185,8 +185,8 @@ public final class MainActivity extends AppCompatActivity {
                     camera.getCameraControl().setZoomRatio(ratio);zoomReadout.setText(String.format(Locale.US,"%.1fx",ratio));}
             }
         });
-        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(188),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
-        sideLp.rightMargin=dp(10);root.addView(sideHud,sideLp);
+        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(155),Gravity.RIGHT|Gravity.TOP);
+        sideLp.rightMargin=dp(10);sideLp.topMargin=dp(135);root.addView(sideHud,sideLp);
         LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
         manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD80A111B,0x788D9DA9,17));
         Button wbButton=button("WB",manualHud,68);
@@ -197,8 +197,8 @@ public final class MainActivity extends AppCompatActivity {
         isoButton.setOnClickListener(v->showManualDialog(true));
         shutterButton.setOnClickListener(v->showManualDialog(false));
         focusButton.setOnClickListener(v->showManualFocus());
-        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(77),dp(214),Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        mlp.leftMargin=dp(10);root.addView(manualHud,mlp);
+        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(77),dp(151),Gravity.LEFT|Gravity.TOP);
+        mlp.leftMargin=dp(10);mlp.topMargin=dp(161);root.addView(manualHud,mlp);
         // Bottom-right exposure strip: keeps hardware EV accessible without a modal.
         LinearLayout exposurePanel=new LinearLayout(this);exposurePanel.setGravity(Gravity.CENTER_VERTICAL);
         exposurePanel.setPadding(dp(8),0,dp(8),0);exposurePanel.setBackground(bg(0xE10A1016,0x557B8892,12));
