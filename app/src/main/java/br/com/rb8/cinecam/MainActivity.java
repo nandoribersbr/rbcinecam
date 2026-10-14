@@ -219,7 +219,8 @@ public final class MainActivity extends AppCompatActivity {
         FrameLayout.LayoutParams evlp=new FrameLayout.LayoutParams(dp(275),dp(46),Gravity.RIGHT|Gravity.BOTTOM);
         evlp.bottomMargin=dp(78);evlp.rightMargin=dp(14);root.addView(exposurePanel,evlp);
         exposurePanel.setVisibility(View.GONE);
-        exposureReadout.setOnClickListener(v->exposurePanel.setVisibility(View.GONE));
+        Button evToggle=button("EV",controls,68);
+        evToggle.setOnClickListener(v->exposurePanel.setVisibility(exposurePanel.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE));
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
