@@ -12,6 +12,7 @@ public final class VerticalZoomView extends View {
  public VerticalZoomView(Context c){super(c);setMinimumHeight(120);}
  public void setListener(Listener l){listener=l;}
  public void setFraction(float f){fraction=Math.max(0f,Math.min(1f,f));invalidate();}
+ public void changeBy(float delta){setFraction(fraction+delta);if(listener!=null)listener.onZoom(fraction);}
  @Override protected void onDraw(Canvas c){
   float d=getResources().getDisplayMetrics().density;
   float x=getWidth()/2f,top=14*d,bottom=getHeight()-14*d;
