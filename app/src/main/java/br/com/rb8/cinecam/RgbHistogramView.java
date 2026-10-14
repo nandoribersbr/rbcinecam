@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.view.View;
 import androidx.camera.core.ImageProxy;
 import java.nio.ByteBuffer;
@@ -11,7 +12,7 @@ import java.nio.ByteBuffer;
 public final class RgbHistogramView extends View {
     private final Paint paint = new Paint(3);
     private final int[][] bins = new int[3][64];
-    public RgbHistogramView(Context c) {super(c);setBackgroundColor(0xD5091018);}
+    public RgbHistogramView(Context c) {super(c);setBackgroundColor(0xEB090F17);}
     public void submit(ImageProxy image) {
         try {
             if (image.getFormat() != android.graphics.PixelFormat.RGBA_8888) return;
@@ -43,13 +44,21 @@ public final class RgbHistogramView extends View {
         int[] colors={0xCCFF5266,0xCC53F1A0,0xCC5AA8FF};
         int max=1;for(int[] a:bins)for(int n:a)max=Math.max(max,n);
         for(int ch=0;ch<3;ch++){
-            paint.setColor(colors[ch]);paint.setStrokeWidth(Math.max(1f,w/80f));
-            for(int i=1;i<64;i++){
-                float x1=left+(i-1)*(right-left)/63f,x2=left+i*(right-left)/63f;
-                float y1=bottom-bins[ch][i-1]*(bottom-top)/max,y2=bottom-bins[ch][i]*(bottom-top)/max;
-                c.drawLine(x1,y1,x2,y2,paint);
+            Path graph=new Path();graph.moveTo(left,bottom);
+            for(int i=0;i<64;i++){
+                float x=left+i*(right-left)/63f;
+                float y=bottom-bins[ch][i]*(bottom-top)/max;
+                graph.lineTo(x,y);
             }
+            graph.lineTo(right,bottom);graph.close();
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(colors[ch]&0x66FFFFFF);
+            c.drawPath(graph,paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setColor(colors[ch]);paint.setStrokeWidth(Math.max(1.1f,d));
+            c.drawPath(graph,paint);
         }
+        paint.setStyle(Paint.Style.FILL);
         paint.setTextSize(12f*getResources().getDisplayMetrics().density);
         paint.setColor(Color.WHITE);c.drawText("RGB",left,17*d,paint);
         int[] legend={0xFFFF6571,0xFF59E8A5,0xFF6EAEFF};
