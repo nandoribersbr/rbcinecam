@@ -61,11 +61,11 @@ public final class MainActivity extends AppCompatActivity {
     private boolean stopping;
     private RgbHistogramView histogram;
     private AudioLevelView audioMeter;
-    private boolean showAudio=false;
+    private boolean showAudio=true;
     private TextView timerText;
     private final android.os.Handler clock=new android.os.Handler(android.os.Looper.getMainLooper());
     private long began=0;
-    private boolean showHistogram=false;
+    private boolean showHistogram=true;
     private ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
     private boolean ready=false;
     private ManualCameraControls manualControls=new ManualCameraControls();
@@ -133,9 +133,11 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackgroundColor(0xDE090E15);
         TextView brand=text("☰   RB CINECAM / PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
-        quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
+        quality=text("FHD  1920 × 1080");quality.setTextColor(0xFFE7EAEE);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
-        timerText=text("00:00:00");timerText.setTextColor(0xFFFF5353);timerText.setTextSize(15);header.addView(timerText);
+        int batteryPercent=((android.os.BatteryManager)getSystemService(BATTERY_SERVICE)).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        TextView battery=text("▰  "+batteryPercent+"%");battery.setTextColor(0xFFD6DEE6);header.addView(battery);
+        timerText=text("●  00:00:00");timerText.setTextColor(0xFFFF5353);timerText.setTextSize(15);header.addView(timerText);
         root.addView(header,new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP));
         
         LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
@@ -156,14 +158,14 @@ public final class MainActivity extends AppCompatActivity {
             preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
         Button gridButton=button("Grade",controls,92);
         gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"Grade ON":"Grade");message(show?"Grade ativada":"Grade desativada");});
-        Button histogramButton=button("RGB",controls,85);
+        Button histogramButton=button("RGB ON",controls,85);
         histogramButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare REC para alterar RGB");return;}showHistogram=!showHistogram;histogramButton.setText(showHistogram?"RGB ON":"RGB");bind();});
-        Button audioButton=button("Áudio",controls,90);
+        Button audioButton=button("Áudio ON",controls,90);
         audioButton.setOnClickListener(v->{
             showAudio=!showAudio;audioButton.setText(showAudio?"Áudio ON":"Áudio");updateAudioMeter();
         });
 
-        root.addView(controls,new FrameLayout.LayoutParams(-1,dp(82),Gravity.BOTTOM));
+        FrameLayout.LayoutParams bottomLp=new FrameLayout.LayoutParams(-1,dp(82),Gravity.BOTTOM);bottomLp.leftMargin=dp(10);bottomLp.rightMargin=dp(10);bottomLp.bottomMargin=dp(8);root.addView(controls,bottomLp);
         // Right-hand optical zoom, overlaid on preview as in approved concept.
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
         sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(5),dp(9),dp(5),dp(9));
@@ -217,7 +219,7 @@ public final class MainActivity extends AppCompatActivity {
             }
         });
         FrameLayout.LayoutParams evlp=new FrameLayout.LayoutParams(dp(275),dp(46),Gravity.RIGHT|Gravity.BOTTOM);
-        evlp.bottomMargin=dp(88);evlp.rightMargin=dp(105);root.addView(exposurePanel,evlp);
+        evlp.bottomMargin=dp(100);evlp.rightMargin=dp(105);root.addView(exposurePanel,evlp);
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
@@ -344,10 +346,11 @@ public final class MainActivity extends AppCompatActivity {
                 }
             }else {camera=provider.bindToLifecycle(this,lens,p,capture);histogram.setVisibility(View.GONE);}
             manualControls.attach(camera);
-            quality.setText(actual==Quality.UHD?"4K":actual==Quality.FHD?"FHD":actual==Quality.HD?"HD":"SD");
+            quality.setText(actual==Quality.UHD?"4K  3840 × 2160":actual==Quality.FHD?"FHD  1920 × 1080":actual==Quality.HD?"HD  1280 × 720":"SD");
             record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
-            message(actual!=preferred?"Resolução ajustada ao hardware":"PRONTO  •  TOQUE PARA FOCO");
+            message(actual!=preferred?"Resolução ajustada ao hardware":"● PRONTO  •  TOQUE PARA FOCO");
+            updateAudioMeter();
         }catch(Exception e){message("Falha ao configurar câmera: "+e.getMessage());}
     }
     private void toggle(){
@@ -372,7 +375,7 @@ public final class MainActivity extends AppCompatActivity {
                     record.setText("PARAR");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
-                    recording=null;stopping=false;record.setEnabled(camera!=null);began=0;clock.removeCallbacksAndMessages(null);timerText.setText("00:00:00");updateAudioMeter();
+                    recording=null;stopping=false;record.setEnabled(camera!=null);began=0;clock.removeCallbacksAndMessages(null);timerText.setText("●  00:00:00");updateAudioMeter();
                     record.setText("REC");
                     if(fin.hasError())message("Falha na gravação: "+fin.getError());
                     else{message("Salvo em Movies/RBCineCam");Toast.makeText(this,"Vídeo salvo",Toast.LENGTH_SHORT).show();}
@@ -383,7 +386,7 @@ public final class MainActivity extends AppCompatActivity {
     private void updateTimer(){
         if(began==0||timerText==null)return;
         long t=(android.os.SystemClock.elapsedRealtime()-began)/1000;
-        timerText.setText(String.format(Locale.US,"%02d:%02d:%02d",t/3600,(t/60)%60,t%60));
+        timerText.setText(String.format(Locale.US,"●  %02d:%02d:%02d",t/3600,(t/60)%60,t%60));
         clock.postDelayed(()->updateTimer(),500);
     }
     private void updateAudioMeter(){
