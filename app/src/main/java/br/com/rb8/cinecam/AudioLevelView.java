@@ -16,7 +16,7 @@ public final class AudioLevelView extends View {
  private volatile float level=0f;
  private volatile boolean clipping=false;
  private String state="MIC OFF";
- public AudioLevelView(Context context){super(context);setBackgroundColor(0xEB090F17);}
+ public AudioLevelView(Context context){super(context);setBackgroundColor(android.graphics.Color.TRANSPARENT);}
  public synchronized boolean start(){
   if(running)return true;
   int rate=16000;
@@ -60,7 +60,11 @@ public final class AudioLevelView extends View {
   invalidate();
  }
  @Override protected void onDraw(Canvas c){
-  super.onDraw(c);float d=getResources().getDisplayMetrics().density;
+  super.onDraw(c);
+        float viewW=getWidth(),viewH=getHeight();
+        p.setStyle(Paint.Style.FILL);p.setColor(0xEB090F17);
+        c.drawRoundRect(1,1,viewW-1,viewH-1,16*getResources().getDisplayMetrics().density,16*getResources().getDisplayMetrics().density,p);
+float d=getResources().getDisplayMetrics().density;
   p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d);p.setColor(0x997E8D9C);
   c.drawRoundRect(d,d,getWidth()-d,getHeight()-d,11*d,11*d,p);
   p.setStyle(Paint.Style.FILL);
