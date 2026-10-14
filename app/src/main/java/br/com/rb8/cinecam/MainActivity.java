@@ -74,7 +74,8 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout bottomHud;
     private android.widget.LinearLayout sideHud;
     private android.widget.TextView focusMarker;
-    private SeekBar zoomRail, exposureRail;
+    private SeekBar exposureRail;
+    private VerticalZoomView zoomRuler;
     private TextView zoomReadout, exposureReadout;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -170,22 +171,18 @@ public final class MainActivity extends AppCompatActivity {
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
         sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(4),dp(9),dp(4),dp(9));
         sideHud.setBackground(bg(0xD90A1018,0x788D9DA9,17));
-        TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);
-        zoomRail=new SeekBar(this);zoomRail.setMax(100);zoomRail.setProgress(0);
-        sideHud.addView(zoomRail,new LinearLayout.LayoutParams(dp(72),dp(42)));
+        TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);plus.setOnClickListener(v->zoomRuler.setFraction(1f));
+        zoomRuler=new VerticalZoomView(this);
+        sideHud.addView(zoomRuler,new LinearLayout.LayoutParams(dp(58),0,1f));
         zoomReadout=text("1.0x");zoomReadout.setTextColor(amber);zoomReadout.setGravity(Gravity.CENTER);sideHud.addView(zoomReadout);
-        TextView minus=text("−");minus.setTextSize(20);minus.setGravity(Gravity.CENTER);sideHud.addView(minus);
-        zoomRail.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onStartTrackingTouch(SeekBar b){}
-            public void onStopTrackingTouch(SeekBar b){}
-            public void onProgressChanged(SeekBar b,int n,boolean user){
-                if(!user||camera==null)return;
+        TextView minus=text("−");minus.setTextSize(20);minus.setGravity(Gravity.CENTER);sideHud.addView(minus);minus.setOnClickListener(v->zoomRuler.setFraction(0f));
+        zoomRuler.setListener(fraction->{
+                if(camera==null)return;
                 androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
-                if(z!=null){float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*n/100f;
+                if(z!=null){float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*fraction;
                     camera.getCameraControl().setZoomRatio(ratio);zoomReadout.setText(String.format(Locale.US,"%.1fx",ratio));}
-            }
         });
-        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(155),Gravity.RIGHT|Gravity.TOP);
+        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(183),Gravity.RIGHT|Gravity.TOP);
         sideLp.rightMargin=dp(10);sideLp.topMargin=dp(135);root.addView(sideHud,sideLp);
         LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
         manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD80A111B,0x788D9DA9,17));
@@ -218,8 +215,11 @@ public final class MainActivity extends AppCompatActivity {
                 exposureReadout.setText(String.format(Locale.US,"%+.1f",(float)(index*e.getExposureCompensationStep().doubleValue())));
             }
         });
+        // EV appears only as a compact drawer above the dock, toggled by its real EV control.
         FrameLayout.LayoutParams evlp=new FrameLayout.LayoutParams(dp(275),dp(46),Gravity.RIGHT|Gravity.BOTTOM);
-        evlp.bottomMargin=dp(100);evlp.rightMargin=dp(105);root.addView(exposurePanel,evlp);
+        evlp.bottomMargin=dp(78);evlp.rightMargin=dp(14);root.addView(exposurePanel,evlp);
+        exposurePanel.setVisibility(View.GONE);
+        exposureReadout.setOnClickListener(v->exposurePanel.setVisibility(View.GONE));
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
