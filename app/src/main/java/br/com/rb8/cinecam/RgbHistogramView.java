@@ -42,8 +42,7 @@ public final class RgbHistogramView extends View {
 
         float w=getWidth(),h=getHeight();float d=getResources().getDisplayMetrics().density;
         float left=12*d,right=w-28*d,top=25*d,bottom=h-12*d;
-        paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d);paint.setColor(0x997E8D9C);
-        c.drawRoundRect(d,d,w-d,h-d,12*d,12*d,paint);
+
         paint.setStyle(Paint.Style.FILL);
         paint.setStrokeWidth(1f);paint.setColor(0x44FFFFFF);
         for(int i=1;i<4;i++)c.drawLine(left,top+(bottom-top)*i/4f,right,top+(bottom-top)*i/4f,paint);
