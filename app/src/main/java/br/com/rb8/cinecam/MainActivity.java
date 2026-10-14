@@ -100,7 +100,7 @@ public final class MainActivity extends AppCompatActivity {
         b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.02f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         b.setBackground(bg(0xDB121A22,0x65788693,12));
         LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(68),dp(48)):new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),dp(3),dp(3),dp(3));bar.addView(b,lp);
-        String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":"quality";
+        String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")||title.contains("FHD")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":title.equals("WB")?"ev":title.equals("ISO")?"rgb":title.contains("Foco")?"zoom":title.contains("1/")?"camera":"quality";
         HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
         return b;
     }
@@ -115,11 +115,11 @@ public final class MainActivity extends AppCompatActivity {
         histogram=new RgbHistogramView(this);
         FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(180),dp(84),Gravity.TOP|Gravity.LEFT);
         hp.topMargin=dp(56);hp.leftMargin=dp(12);
-        root.addView(histogram,hp);histogram.setVisibility(View.GONE);
+        root.addView(histogram,hp);histogram.setVisibility(View.VISIBLE);
         audioMeter=new AudioLevelView(this);
         FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(155),dp(60),Gravity.RIGHT|Gravity.TOP);
         ap.topMargin=dp(56);ap.rightMargin=dp(12);
-        root.addView(audioMeter,ap);audioMeter.setVisibility(View.GONE);
+        root.addView(audioMeter,ap);audioMeter.setVisibility(View.VISIBLE);
         grid = new View(this) {
             android.graphics.Paint p = new android.graphics.Paint(1);
             @Override protected void onDraw(android.graphics.Canvas c) {
@@ -141,7 +141,7 @@ public final class MainActivity extends AppCompatActivity {
         root.addView(header,new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP));
         
         LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackground(bg(0xEA0A1016,0x667B8994,15)); controls.setPadding(dp(9),dp(5),dp(9),dp(5));
+        controls.setBackground(bg(0xEA0A1016,0x667B8994,15)); controls.setPadding(dp(12),dp(5),dp(12),dp(5));
         record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackground(bg(0xFFE73543,0xFFFF8888,40));record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
@@ -349,6 +349,7 @@ public final class MainActivity extends AppCompatActivity {
             quality.setText(actual==Quality.UHD?"4K  3840 × 2160":actual==Quality.FHD?"FHD  1920 × 1080":actual==Quality.HD?"HD  1280 × 720":"SD");
             record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
+            updateAudioMeter();
             message(actual!=preferred?"Resolução ajustada ao hardware":"● PRONTO  •  TOQUE PARA FOCO");
             updateAudioMeter();
         }catch(Exception e){message("Falha ao configurar câmera: "+e.getMessage());}
