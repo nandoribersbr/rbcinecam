@@ -164,32 +164,67 @@ public final class MainActivity extends AppCompatActivity {
         });
 
         root.addView(controls,new FrameLayout.LayoutParams(-1,dp(82),Gravity.BOTTOM));
+        // Right-hand optical zoom, overlaid on preview as in approved concept.
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
-        sideHud.setPadding(dp(6),dp(8),dp(6),dp(8));sideHud.setBackgroundColor(0xD80A111B);
-        Button zoomButton=button("Zoom",sideHud,70);
-        Button exposureButton=button("EV",sideHud,70);
-        zoomButton.setOnClickListener(v->showSliderDialog("Zoom",true));
-        exposureButton.setOnClickListener(v->showSliderDialog("Exposição",false));
-        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(82),dp(122),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
-        sideLp.rightMargin=dp(8);root.addView(sideHud,sideLp);
-        LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);manualHud.setBackgroundColor(0xDD0A111B);
-        Button isoButton=button("ISO",manualHud,68);
-        Button shutterButton=button("Shutter",manualHud,68);
+        sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(5),dp(9),dp(5),dp(9));
+        sideHud.setBackground(bg(0xD90A1018,0x788D9DA9,17));
+        TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);
+        zoomRail=new SeekBar(this);zoomRail.setMax(100);zoomRail.setProgress(0);
+        sideHud.addView(zoomRail,new LinearLayout.LayoutParams(dp(72),dp(42)));
+        zoomReadout=text("1.0x");zoomReadout.setTextColor(amber);zoomReadout.setGravity(Gravity.CENTER);sideHud.addView(zoomReadout);
+        TextView minus=text("−");minus.setTextSize(20);minus.setGravity(Gravity.CENTER);sideHud.addView(minus);
+        zoomRail.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onStartTrackingTouch(SeekBar b){}
+            public void onStopTrackingTouch(SeekBar b){}
+            public void onProgressChanged(SeekBar b,int n,boolean user){
+                if(!user||camera==null)return;
+                androidx.camera.core.ZoomState z=camera.getCameraInfo().getZoomState().getValue();
+                if(z!=null){float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*n/100f;
+                    camera.getCameraControl().setZoomRatio(ratio);zoomReadout.setText(String.format(Locale.US,"%.1fx",ratio));}
+            }
+        });
+        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(85),dp(172),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        sideLp.rightMargin=dp(10);root.addView(sideHud,sideLp);
+        LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
+        manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD80A111B,0x788D9DA9,17));
         Button wbButton=button("WB",manualHud,68);
+        Button isoButton=button("ISO",manualHud,68);
+        Button shutterButton=button("1/60",manualHud,68);
         Button focusButton=button("Foco",manualHud,68);
+        wbButton.setOnClickListener(v->showWhiteBalance());
         isoButton.setOnClickListener(v->showManualDialog(true));
         shutterButton.setOnClickListener(v->showManualDialog(false));
-        wbButton.setOnClickListener(v->showWhiteBalance());
         focusButton.setOnClickListener(v->showManualFocus());
-        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(82),dp(226),Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        mlp.leftMargin=dp(8);root.addView(manualHud,mlp);
+        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(83),dp(240),Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        mlp.leftMargin=dp(10);root.addView(manualHud,mlp);
+        // Bottom-right exposure strip: keeps hardware EV accessible without a modal.
+        LinearLayout exposurePanel=new LinearLayout(this);exposurePanel.setGravity(Gravity.CENTER_VERTICAL);
+        exposurePanel.setPadding(dp(8),0,dp(8),0);exposurePanel.setBackground(bg(0xE10A1016,0x557B8892,12));
+        TextView evLabel=text("EXPOSIÇÃO");evLabel.setTextSize(9);exposurePanel.addView(evLabel);
+        exposureRail=new SeekBar(this);exposureRail.setMax(100);exposureRail.setProgress(50);
+        exposurePanel.addView(exposureRail,new LinearLayout.LayoutParams(0,dp(40),1));
+        exposureReadout=text("+0.0");exposureReadout.setTextColor(amber);exposurePanel.addView(exposureReadout);
+        exposureRail.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onStartTrackingTouch(SeekBar b){}
+            public void onStopTrackingTouch(SeekBar b){}
+            public void onProgressChanged(SeekBar b,int n,boolean user){
+                if(!user||camera==null)return;
+                androidx.camera.core.ExposureState e=camera.getCameraInfo().getExposureState();
+                if(!e.isExposureCompensationSupported()){message("EV não suportado");return;}
+                int lo=e.getExposureCompensationRange().getLower(),hi=e.getExposureCompensationRange().getUpper();
+                int index=Math.round(lo+(hi-lo)*n/100f);camera.getCameraControl().setExposureCompensationIndex(index);
+                exposureReadout.setText(String.format(Locale.US,"%+.1f",(float)(index*e.getExposureCompensationStep().doubleValue())));
+            }
+        });
+        FrameLayout.LayoutParams evlp=new FrameLayout.LayoutParams(dp(275),dp(46),Gravity.RIGHT|Gravity.BOTTOM);
+        evlp.bottomMargin=dp(88);evlp.rightMargin=dp(105);root.addView(exposurePanel,evlp);
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
         root.addView(focusMarker,fp);
         brand.setOnClickListener(v->{
             hudVisible=!hudVisible;
-            controls.setVisibility(hudVisible?View.VISIBLE:View.GONE);
+            controls.setVisibility(hudVisible?View.VISIBLE:View.GONE);exposurePanel.setVisibility(hudVisible?View.VISIBLE:View.GONE);manualHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
             sideHud.setVisibility(hudVisible?View.VISIBLE:View.GONE);
             message(hudVisible?"HUD completo":"HUD limpo: toque na marca para restaurar");
         });
