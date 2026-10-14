@@ -285,6 +285,37 @@ public final class MainActivity extends AppCompatActivity {
         });
         if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
     }
+    private void refreshHudRescue(){
+        if(hudRescue!=null&&floatingHud!=null)hudRescue.setVisibility(
+            floatingHud.isEditing()||!floatingHud.isVisible("top")?View.VISIBLE:View.GONE);
+    }
+    private void showFloatingHudSettings(){
+        if(recording!=null||stopping){message("Pare REC antes de editar o HUD");return;}
+        final String[] ids={"rgb","audio","manual","zoom","dock","top"};
+        final String[] labels={"RGB","Áudio","Controles manuais","Zoom","Barra inferior","Cabeçalho"};
+        String[] actions=new String[ids.length+3];
+        actions[0]=floatingHud.isEditing()?"Concluir movimentação":"Mover painéis com o dedo";
+        for(int i=0;i<ids.length;i++)actions[i+1]=labels[i]+" • "+
+            (floatingHud.isVisible(ids[i])?"Visível":"Oculto")+" • "+
+            (floatingHud.isLocked(ids[i])?"Travado":"Livre");
+        actions[ids.length+1]="Restaurar layout padrão";
+        actions[ids.length+2]="Mostrar todos";
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("HUD FLUTUANTE")
+            .setItems(actions,(d,choice)->{
+                if(choice==0){floatingHud.toggleEdit();refreshHudRescue();message(floatingHud.isEditing()?"Arraste os painéis; toque em ☰ HUD para concluir":"Posições salvas");}
+                else if(choice<=ids.length){
+                    String id=ids[choice-1];
+                    new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(labels[choice-1])
+                        .setItems(new String[]{"Mostrar / ocultar","Travar / destravar"},(dd,selected)->{
+                            if(selected==0)floatingHud.setVisible(id,!floatingHud.isVisible(id));
+                            else floatingHud.setLocked(id,!floatingHud.isLocked(id));
+                            refreshHudRescue();
+                        }).show();
+                }else if(choice==ids.length+1){
+                    floatingHud.reset();refreshHudRescue();message("Layout restaurado");
+                }else{for(String id:ids)floatingHud.setVisible(id,true);refreshHudRescue();}
+            }).setNegativeButton("Fechar",null).show();
+    }
     private void syncManualHud(){
         if(wbHud==null||isoHud==null||shutterHud==null)return;
         if(!manualControls.isManualExposure()){isoHud.setText("ISO Auto");shutterHud.setText("S Auto");}
