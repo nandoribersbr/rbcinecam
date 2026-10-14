@@ -101,7 +101,7 @@ public final class MainActivity extends AppCompatActivity {
     private Button button(String title, LinearLayout bar, int width) {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.035f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
-        b.setBackground(bg(0xDF101820,0x507F909E,11));
+        b.setBackground(bg(0xEB0E151D,0x647F909E,12));
         LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(31)):new LinearLayout.LayoutParams(0,dp(43),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
         String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")||title.contains("FHD")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":title.equals("WB")?"ev":title.equals("ISO")?"rgb":title.contains("Foco")?"zoom":title.contains("1/")?"camera":"quality";
         HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
@@ -118,11 +118,11 @@ public final class MainActivity extends AppCompatActivity {
         cinemaFraming=new CinemaFramingView(this);
         root.addView(cinemaFraming,new FrameLayout.LayoutParams(-1,-1));
         histogram=new RgbHistogramView(this);
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(210),dp(100),Gravity.TOP|Gravity.LEFT);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(230),dp(104),Gravity.TOP|Gravity.LEFT);
         hp.topMargin=dp(56);hp.leftMargin=dp(12);
         root.addView(histogram,hp);histogram.setVisibility(View.VISIBLE);
         audioMeter=new AudioLevelView(this);
-        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(170),dp(65),Gravity.RIGHT|Gravity.TOP);
+        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(185),dp(78),Gravity.RIGHT|Gravity.TOP);
         ap.topMargin=dp(56);ap.rightMargin=dp(12);
         root.addView(audioMeter,ap);audioMeter.setVisibility(View.VISIBLE);
         grid = new View(this) {
@@ -136,8 +136,10 @@ public final class MainActivity extends AppCompatActivity {
         grid.setVisibility(View.GONE);
         root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackgroundColor(0xDE090E15);
-        TextView brand=text("☰   RB CINECAM / PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
+        header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackground(bg(0xE9090E15,0x70838C95,14));
+        TextView brand=text("☰   RB CINECAM / PRO");
+        android.graphics.drawable.Drawable brandIcon=androidx.core.content.ContextCompat.getDrawable(this,R.drawable.ic_rb_cinecam);
+        if(brandIcon!=null){brandIcon.setBounds(0,0,dp(28),dp(28));brand.setCompoundDrawables(brandIcon,null,null,null);brand.setCompoundDrawablePadding(dp(7));}brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
         quality=text("FHD  1920 × 1080");quality.setTextColor(0xFFE7EAEE);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
         int batteryPercent=((android.os.BatteryManager)getSystemService(BATTERY_SERVICE)).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY);
@@ -146,8 +148,8 @@ public final class MainActivity extends AppCompatActivity {
         root.addView(header,new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP));
         
         LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackground(bg(0xE40A1016,0x657B8994,16)); controls.setPadding(dp(11),dp(3),dp(11),dp(3));
-        record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackground(bg(0xFFE73543,0xFFFF8888,40));record.setEnabled(false);record.setOnClickListener(v->toggle());
+        controls.setBackground(bg(0xEC080D13,0x8799A5AF,19)); controls.setPadding(dp(11),dp(3),dp(11),dp(3));
+        record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackground(bg(0xFFE02C38,0xFFFFA0A0,48));record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
             if(recording!=null||stopping){message("Pare a gravação para trocar de câmera");return;}
@@ -174,7 +176,7 @@ public final class MainActivity extends AppCompatActivity {
         // Right-hand optical zoom, overlaid on preview as in approved concept.
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
         sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(4),dp(9),dp(4),dp(9));
-        sideHud.setBackground(bg(0xD90A1018,0x788D9DA9,17));
+        sideHud.setBackground(bg(0xE50A1018,0xA88D9DA9,18));
         TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);plus.setOnClickListener(v->zoomRuler.changeBy(0.05f));
         zoomRuler=new VerticalZoomView(this);
         sideHud.addView(zoomRuler,new LinearLayout.LayoutParams(dp(58),0,1f));
@@ -189,7 +191,7 @@ public final class MainActivity extends AppCompatActivity {
         FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(183),Gravity.RIGHT|Gravity.TOP);
         sideLp.rightMargin=dp(10);sideLp.topMargin=dp(135);root.addView(sideHud,sideLp);
         LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
-        manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD80A111B,0x788D9DA9,17));
+        manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xE40A111B,0xA88D9DA9,18));
         Button wbButton=button("WB Auto",manualHud,68);wbHud=wbButton;
         Button isoButton=button("ISO Auto",manualHud,68);isoHud=isoButton;
         Button shutterButton=button("S Auto",manualHud,68);shutterHud=shutterButton;
