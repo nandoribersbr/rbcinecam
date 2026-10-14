@@ -16,7 +16,7 @@ public final class AudioLevelView extends View {
  private volatile float level=0f;
  private volatile boolean clipping=false;
  private String state="MIC OFF";
- public AudioLevelView(Context context){super(context);setBackgroundColor(0xD5091018);}
+ public AudioLevelView(Context context){super(context);setBackgroundColor(0xEB090F17);}
  public synchronized boolean start(){
   if(running)return true;
   int rate=16000;
@@ -66,17 +66,19 @@ public final class AudioLevelView extends View {
   p.setStyle(Paint.Style.FILL);
   p.setTextSize(10*d);p.setColor(0xFFE9EEF8);
   c.drawText(state,9*d,15*d,p);
-  float left=9*d,top=22*d,w=Math.max(2,getWidth()-18*d),height=13*d;
-  int bars=18;float space=2*d,bar=(w-space*(bars-1))/bars;
+  float left=9*d,top=23*d,w=Math.max(2,getWidth()-18*d),height=29*d;
+  int bars=19,segments=6;float space=2*d,bar=(w-space*(bars-1))/bars;
   for(int i=0;i<bars;i++){
-   float x=left+i*(bar+space),y=top;
-   float fraction=(i+1f)/bars;
-   p.setColor(fraction>0.9f?0xFFFF6A64:fraction>0.72f?0xFFFFC15E:0xFF42DEA0);
-   if(fraction>level)p.setColor(0xFF293847);
-   c.drawRoundRect(x,y,x+Math.max(bar,1),y+height,d,d,p);
+   float x=left+i*(bar+space),fraction=(i+1f)/bars;
+   for(int j=0;j<segments;j++){
+    float y=top+height-(j+1)*height/segments+0.6f*d;
+    int col=j>4?0xFFFF6A64:j>2?0xFFFFC15E:0xFF42DEA0;
+    p.setColor(fraction<=level?col:0xFF293847);
+    c.drawRoundRect(x,y,x+Math.max(bar,1),y+height/segments-1*d,d*0.5f,d*0.5f,p);
+   }
   }
   p.setColor(0xFFBBC6D3);p.setTextSize(9*d);
-  c.drawText("-60",left,48*d,p);
+  c.drawText("-60",left,66*d,p);
   c.drawText("-30",getWidth()/2f-10*d,48*d,p);
   c.drawText(clipping?"CLIP":"0 dB",getWidth()-38*d,48*d,p);
  }
