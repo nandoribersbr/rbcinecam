@@ -23,16 +23,26 @@ public final class CineHudButton extends AppCompatButton {
    setStateListAnimator(null);
  }
  private int px(int dp){return (int)(getResources().getDisplayMetrics().density*dp+.5f);}
- public void setRecordingStyle(boolean b){recording=b;invalidate();}
+ public void setRecordingStyle(boolean b){recording=b;if(b){setCompoundDrawables(null,null,null,null);setPadding(px(56),0,px(4),0);}invalidate();}
  public void setSelectedStyle(boolean b){selected=b;invalidate();}
  @Override protected void onDraw(Canvas canvas){
   float w=getWidth(),h=getHeight(),pad=px(2);rect.set(pad,pad,w-pad,h-pad);
   paint.setStyle(Paint.Style.FILL);
-  paint.setColor(recording?0xFFD92839:(isPressed()?0xFF27343F:0xEA0B1118));
-  canvas.drawRoundRect(rect,px(recording?25:12),px(recording?25:12),paint);
+  paint.setColor(isPressed()?0xFF24323D:0xED0A1017);
+  canvas.drawRoundRect(rect,px(13),px(13),paint);
   paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(px(1));
-  paint.setColor(recording?0xFFFF9E99:(selected?0xFFF5BA60:0x665B6D7A));
-  canvas.drawRoundRect(rect,px(recording?25:12),px(recording?25:12),paint);
+  paint.setColor(selected?0xFFF3B85C:0x77667889);
+  canvas.drawRoundRect(rect,px(13),px(13),paint);
+  if(recording){
+   float diameter=Math.min(h-px(6),w*0.46f);
+   float cx=pad+diameter/2+px(2),cy=h/2;
+   paint.setStyle(Paint.Style.FILL);paint.setColor(0xFFEB2634);
+   canvas.drawCircle(cx,cy,diameter/2,paint);
+   paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(px(2));
+   paint.setColor(0xFFFF8E91);canvas.drawCircle(cx,cy,diameter/2-px(2),paint);
+   paint.setStyle(Paint.Style.FILL);paint.setColor(Color.WHITE);
+   canvas.drawCircle(cx,cy,px(5),paint);
+  }
   super.onDraw(canvas);
  }
 }
