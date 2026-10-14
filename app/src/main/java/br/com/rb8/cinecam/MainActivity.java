@@ -125,7 +125,7 @@ public final class MainActivity extends AppCompatActivity {
         root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackgroundColor(0xDE090E15);
-        TextView brand=text("RB CINECAM / PRO  v"+BuildConfig.VERSION_NAME);brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
+        TextView brand=text("RB CINECAM / PRO  v0.5.0-alpha6");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
         quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
         timerText=text("00:00:00");timerText.setTextColor(amber);header.addView(timerText);
