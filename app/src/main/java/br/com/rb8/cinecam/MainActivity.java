@@ -99,7 +99,7 @@ public final class MainActivity extends AppCompatActivity {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.02f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         b.setBackground(bg(0xDB121A22,0x65788693,12));
-        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(68),dp(48)):new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),dp(3),dp(3),dp(3));bar.addView(b,lp);
+        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(42)):new LinearLayout.LayoutParams(0,dp(45),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
         String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")||title.contains("FHD")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":title.equals("WB")?"ev":title.equals("ISO")?"rgb":title.contains("Foco")?"zoom":title.contains("1/")?"camera":"quality";
         HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
         return b;
@@ -113,11 +113,11 @@ public final class MainActivity extends AppCompatActivity {
         preview.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         root.addView(preview, new FrameLayout.LayoutParams(-1,-1));
         histogram=new RgbHistogramView(this);
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(180),dp(84),Gravity.TOP|Gravity.LEFT);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(198),dp(92),Gravity.TOP|Gravity.LEFT);
         hp.topMargin=dp(56);hp.leftMargin=dp(12);
         root.addView(histogram,hp);histogram.setVisibility(View.VISIBLE);
         audioMeter=new AudioLevelView(this);
-        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(155),dp(60),Gravity.RIGHT|Gravity.TOP);
+        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(160),dp(58),Gravity.RIGHT|Gravity.TOP);
         ap.topMargin=dp(56);ap.rightMargin=dp(12);
         root.addView(audioMeter,ap);audioMeter.setVisibility(View.VISIBLE);
         grid = new View(this) {
@@ -165,10 +165,10 @@ public final class MainActivity extends AppCompatActivity {
             showAudio=!showAudio;audioButton.setText(showAudio?"Áudio ON":"Áudio");updateAudioMeter();
         });
 
-        FrameLayout.LayoutParams bottomLp=new FrameLayout.LayoutParams(-1,dp(82),Gravity.BOTTOM);bottomLp.leftMargin=dp(10);bottomLp.rightMargin=dp(10);bottomLp.bottomMargin=dp(8);root.addView(controls,bottomLp);
+        FrameLayout.LayoutParams bottomLp=new FrameLayout.LayoutParams(-1,dp(70),Gravity.BOTTOM);bottomLp.leftMargin=dp(10);bottomLp.rightMargin=dp(10);bottomLp.bottomMargin=dp(7);root.addView(controls,bottomLp);
         // Right-hand optical zoom, overlaid on preview as in approved concept.
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
-        sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(5),dp(9),dp(5),dp(9));
+        sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(4),dp(9),dp(4),dp(9));
         sideHud.setBackground(bg(0xD90A1018,0x788D9DA9,17));
         TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);
         zoomRail=new SeekBar(this);zoomRail.setMax(100);zoomRail.setProgress(0);
@@ -185,7 +185,7 @@ public final class MainActivity extends AppCompatActivity {
                     camera.getCameraControl().setZoomRatio(ratio);zoomReadout.setText(String.format(Locale.US,"%.1fx",ratio));}
             }
         });
-        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(85),dp(172),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(188),Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         sideLp.rightMargin=dp(10);root.addView(sideHud,sideLp);
         LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
         manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD80A111B,0x788D9DA9,17));
@@ -197,7 +197,7 @@ public final class MainActivity extends AppCompatActivity {
         isoButton.setOnClickListener(v->showManualDialog(true));
         shutterButton.setOnClickListener(v->showManualDialog(false));
         focusButton.setOnClickListener(v->showManualFocus());
-        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(83),dp(240),Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams mlp=new FrameLayout.LayoutParams(dp(77),dp(214),Gravity.LEFT|Gravity.CENTER_VERTICAL);
         mlp.leftMargin=dp(10);root.addView(manualHud,mlp);
         // Bottom-right exposure strip: keeps hardware EV accessible without a modal.
         LinearLayout exposurePanel=new LinearLayout(this);exposurePanel.setGravity(Gravity.CENTER_VERTICAL);
