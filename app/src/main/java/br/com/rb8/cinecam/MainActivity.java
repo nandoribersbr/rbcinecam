@@ -74,6 +74,8 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout bottomHud;
     private android.widget.LinearLayout sideHud;
     private android.widget.TextView focusMarker;
+    private SeekBar zoomRail, exposureRail;
+    private TextView zoomReadout, exposureReadout;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -88,11 +90,16 @@ public final class MainActivity extends AppCompatActivity {
         t.setGravity(Gravity.CENTER_VERTICAL); t.setPadding(dp(9),0,dp(9),0);
         return t;
     }
+    private android.graphics.drawable.GradientDrawable bg(int color,int border,int radius){
+        android.graphics.drawable.GradientDrawable g=new android.graphics.drawable.GradientDrawable();
+        g.setColor(color);g.setCornerRadius(dp(radius));
+        if(border!=0)g.setStroke(dp(1),border);return g;
+    }
     private Button button(String title, LinearLayout bar, int width) {
         Button b = new Button(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(10); b.setLetterSpacing(0.02f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
-        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF252D39));
-        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(68),dp(48)):new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
+        b.setBackground(bg(0xDB121A22,0x65788693,12));
+        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(68),dp(48)):new LinearLayout.LayoutParams(0,dp(48),1f);lp.setMargins(dp(3),dp(3),dp(3),dp(3));bar.addView(b,lp);
         String kind=title.equals("REC")?"rec":title.contains("Câmera")?"camera":title.contains("4K")?"quality":title.contains("Grade")?"grid":title.contains("RGB")?"rgb":title.contains("Áudio")?"audio":title.contains("Zoom")?"zoom":title.contains("EV")?"ev":"quality";
         HudIcon icon=new HudIcon(kind,0xFFF2B85B);icon.setBounds(0,0,dp(19),dp(19));b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(4));
         return b;
@@ -103,15 +110,15 @@ public final class MainActivity extends AppCompatActivity {
         getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
         FrameLayout root = new FrameLayout(this);rootFrame=root; root.setBackgroundColor(Color.BLACK);
         preview = new PreviewView(this); preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
-        preview.setScaleType(PreviewView.ScaleType.FIT_CENTER);
+        preview.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         root.addView(preview, new FrameLayout.LayoutParams(-1,-1));
         histogram=new RgbHistogramView(this);
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(180),dp(86),Gravity.TOP|Gravity.RIGHT);
-        hp.topMargin=dp(53);hp.rightMargin=dp(12);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(dp(180),dp(84),Gravity.TOP|Gravity.LEFT);
+        hp.topMargin=dp(56);hp.leftMargin=dp(12);
         root.addView(histogram,hp);histogram.setVisibility(View.GONE);
         audioMeter=new AudioLevelView(this);
-        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(176),dp(55),Gravity.LEFT|Gravity.TOP);
-        ap.topMargin=dp(55);ap.leftMargin=dp(10);
+        FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(dp(155),dp(60),Gravity.RIGHT|Gravity.TOP);
+        ap.topMargin=dp(56);ap.rightMargin=dp(12);
         root.addView(audioMeter,ap);audioMeter.setVisibility(View.GONE);
         grid = new View(this) {
             android.graphics.Paint p = new android.graphics.Paint(1);
@@ -125,15 +132,15 @@ public final class MainActivity extends AppCompatActivity {
         root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackgroundColor(0xDE090E15);
-        TextView brand=text("RB CINECAM / PRO  v0.5.0-alpha6");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
+        TextView brand=text("☰   RB CINECAM / PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
         quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
-        timerText=text("00:00:00");timerText.setTextColor(amber);header.addView(timerText);
+        timerText=text("00:00:00");timerText.setTextColor(0xFFFF5353);timerText.setTextSize(15);header.addView(timerText);
         root.addView(header,new FrameLayout.LayoutParams(-1,dp(48),Gravity.TOP));
         
         LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackgroundColor(0xE80B121B); controls.setPadding(dp(10),dp(6),dp(10),dp(6));
-        record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFAF273B));record.setEnabled(false);record.setOnClickListener(v->toggle());
+        controls.setBackground(bg(0xEA0A1016,0x667B8994,15)); controls.setPadding(dp(9),dp(5),dp(9),dp(5));
+        record=button("REC",controls,100);record.setTextColor(Color.WHITE);record.setBackground(bg(0xFFE73543,0xFFFF8888,40));record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
             if(recording!=null||stopping){message("Pare a gravação para trocar de câmera");return;}
@@ -156,7 +163,7 @@ public final class MainActivity extends AppCompatActivity {
             showAudio=!showAudio;audioButton.setText(showAudio?"Áudio ON":"Áudio");updateAudioMeter();
         });
 
-        root.addView(controls,new FrameLayout.LayoutParams(-1,dp(68),Gravity.BOTTOM));
+        root.addView(controls,new FrameLayout.LayoutParams(-1,dp(82),Gravity.BOTTOM));
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
         sideHud.setPadding(dp(6),dp(8),dp(6),dp(8));sideHud.setBackgroundColor(0xD80A111B);
         Button zoomButton=button("Zoom",sideHud,70);
