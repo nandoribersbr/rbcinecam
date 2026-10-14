@@ -77,7 +77,7 @@ public final class MainActivity extends AppCompatActivity {
     private SeekBar exposureRail;
     private VerticalZoomView zoomRuler;
     private TextView zoomReadout, exposureReadout;
-    private Button wbHud, isoHud, shutterHud;
+    private Button wbHud, isoHud, shutterHud, histogramButton;
     private final ActivityResultLauncher<String[]> request = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 if (cameraGranted()) startCamera();
@@ -160,7 +160,7 @@ public final class MainActivity extends AppCompatActivity {
             preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
         Button gridButton=button("Grade",controls,92);
         gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);gridButton.setText(show?"Grade ON":"Grade");message(show?"Grade ativada":"Grade desativada");});
-        Button histogramButton=button("RGB ON",controls,85);
+        histogramButton=button("RGB ON",controls,85);
         histogramButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare REC para alterar RGB");return;}showHistogram=!showHistogram;histogramButton.setText(showHistogram?"RGB ON":"RGB");bind();});
         Button audioButton=button("Áudio ON",controls,90);
         audioButton.setOnClickListener(v->{
@@ -358,21 +358,23 @@ public final class MainActivity extends AppCompatActivity {
                 ImageAnalysis analysis=new ImageAnalysis.Builder().setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                   .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(new android.util.Size(640,360)).build();
                 analysis.setAnalyzer(analysisExecutor,image->histogram.submit(image));
-                try {camera=provider.bindToLifecycle(this,lens,p,capture,analysis);histogram.setVisibility(View.VISIBLE);}
+                try {camera=provider.bindToLifecycle(this,lens,p,capture,analysis);histogram.setVisibility(View.VISIBLE);if(histogramButton!=null)histogramButton.setText("RGB ON");}
                 catch(Exception unsupported) {
                     provider.unbindAll();
                     camera=provider.bindToLifecycle(this,lens,p,capture);
-                    showHistogram=false;histogram.setVisibility(View.GONE);
-                    message("RGB indisponível nesta câmera/resolução");
+                    histogram.setVisibility(View.GONE);
+                    if(histogramButton!=null)histogramButton.setText("RGB N/D");
+                    message("4K: RGB indisponível; retorne ao FHD para analisar");
                 }
-            }else {camera=provider.bindToLifecycle(this,lens,p,capture);histogram.setVisibility(View.GONE);}
+            }else {camera=provider.bindToLifecycle(this,lens,p,capture);histogram.setVisibility(View.GONE);if(histogramButton!=null)histogramButton.setText("RGB OFF");}
             manualControls.attach(camera);
             syncManualHud();
             quality.setText(actual==Quality.UHD?"4K  3840 × 2160":actual==Quality.FHD?"FHD  1920 × 1080":actual==Quality.HD?"HD  1280 × 720":"SD");
             record.setEnabled(true);ready=true;
             qualityButton.setText(actual==Quality.UHD?"4K ▾":actual==Quality.FHD?"FHD ▾":actual==Quality.HD?"HD ▾":"SD ▾");
             updateAudioMeter();
-            message(actual!=preferred?"Resolução ajustada ao hardware":"● PRONTO  •  TOQUE PARA FOCO");
+            if(showHistogram&&histogram.getVisibility()!=View.VISIBLE)message("RGB N/D em "+(actual==Quality.UHD?"4K":"esta câmera")+" • FHD pode permitir RGB");
+            else message(actual!=preferred?"Resolução ajustada ao hardware":"● PRONTO  •  TOQUE PARA FOCO");
             updateAudioMeter();
         }catch(Exception e){message("Falha ao configurar câmera: "+e.getMessage());}
     }
