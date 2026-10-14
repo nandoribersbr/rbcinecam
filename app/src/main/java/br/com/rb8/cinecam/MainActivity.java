@@ -125,7 +125,7 @@ public final class MainActivity extends AppCompatActivity {
         root.addView(grid,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(10),0,dp(10),0); header.setBackgroundColor(0xDE090E15);
-        TextView brand=text("RB CINECAM  /  PRO");brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
+        TextView brand=text("RB CINECAM / PRO  v"+BuildConfig.VERSION_NAME);brand.setTextColor(amber);brand.setTextSize(13);brand.setTypeface(null,1);header.addView(brand);
         quality=text("FHD");quality.setTextColor(amber);header.addView(quality);
         status=text("Aguardando câmera");header.addView(status,new LinearLayout.LayoutParams(0,-1,1));
         timerText=text("00:00:00");timerText.setTextColor(amber);header.addView(timerText);
@@ -322,10 +322,11 @@ public final class MainActivity extends AppCompatActivity {
             record.setEnabled(false);
             if(audioMeter!=null)audioMeter.stop("REC AGUARDANDO NÍVEIS");
             recording=pending.start(ContextCompat.getMainExecutor(this),event->{
-                if(event instanceof VideoRecordEvent.Status){
+                if(event instanceof VideoRecordEvent.Status || event instanceof VideoRecordEvent.Start){
                     androidx.camera.video.AudioStats stats=event.getRecordingStats().getAudioStats();
                     if(showAudio&&audioMeter!=null){audioMeter.setVisibility(View.VISIBLE);audioMeter.showRecordedAmplitude(stats.getAudioAmplitude(),stats.hasAudio());}
-                }else if(event instanceof VideoRecordEvent.Start){began=android.os.SystemClock.elapsedRealtime();updateTimer();
+                }
+                if(event instanceof VideoRecordEvent.Start){began=android.os.SystemClock.elapsedRealtime();updateTimer();
                     record.setText("PARAR");record.setEnabled(true);message(audioGranted()?"Gravando":"Gravando sem áudio");
                 }else if(event instanceof VideoRecordEvent.Finalize){
                     VideoRecordEvent.Finalize fin=(VideoRecordEvent.Finalize)event;
