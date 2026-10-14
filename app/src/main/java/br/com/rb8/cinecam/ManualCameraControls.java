@@ -36,6 +36,8 @@ public final class ManualCameraControls {
  public int maxIso(){return isoRange==null?100:isoRange.getUpper();}
  public long minExposure(){return exposureRange==null?1000000:exposureRange.getLower();}
  public long maxExposure(){return exposureRange==null?33333333:exposureRange.getUpper();}
+ public boolean isManualExposure(){return selectedIso!=null&&selectedExposure!=null;}
+ public int currentWb(){return selectedWb;}
  public int currentIso(){return selectedIso!=null?selectedIso:minIso();}
  public long currentExposure(){return selectedExposure!=null?selectedExposure:Math.max(minExposure(),Math.min(maxExposure(),16666667L));}
  public boolean setManual(int iso,long shutterNs){
