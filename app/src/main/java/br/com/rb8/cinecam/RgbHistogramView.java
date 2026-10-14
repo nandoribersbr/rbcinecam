@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 public final class RgbHistogramView extends View {
     private final Paint paint = new Paint(3);
     private final int[][] bins = new int[3][64];
-    public RgbHistogramView(Context c) {super(c);setBackgroundColor(0xC9111620);}
+    public RgbHistogramView(Context c) {super(c);setBackgroundColor(0xD5091018);}
     public void submit(ImageProxy image) {
         try {
             if (image.getFormat() != android.graphics.PixelFormat.RGBA_8888) return;
@@ -33,20 +33,26 @@ public final class RgbHistogramView extends View {
     }
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
-        float w=getWidth(),h=getHeight();
+        float w=getWidth(),h=getHeight();float d=getResources().getDisplayMetrics().density;
+        float left=12*d,right=w-28*d,top=25*d,bottom=h-12*d;
+        paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d);paint.setColor(0x997E8D9C);
+        c.drawRoundRect(d,d,w-d,h-d,12*d,12*d,paint);
+        paint.setStyle(Paint.Style.FILL);
         paint.setStrokeWidth(1f);paint.setColor(0x44FFFFFF);
-        for(int i=1;i<4;i++)c.drawLine(0,h*i/4f,w,h*i/4f,paint);
+        for(int i=1;i<4;i++)c.drawLine(left,top+(bottom-top)*i/4f,right,top+(bottom-top)*i/4f,paint);
         int[] colors={0xCCFF5266,0xCC53F1A0,0xCC5AA8FF};
         int max=1;for(int[] a:bins)for(int n:a)max=Math.max(max,n);
         for(int ch=0;ch<3;ch++){
             paint.setColor(colors[ch]);paint.setStrokeWidth(Math.max(1f,w/80f));
             for(int i=1;i<64;i++){
-                float x1=(i-1)*w/63f,x2=i*w/63f;
-                float y1=h-4-bins[ch][i-1]*(h-8)/max,y2=h-4-bins[ch][i]*(h-8)/max;
+                float x1=left+(i-1)*(right-left)/63f,x2=left+i*(right-left)/63f;
+                float y1=bottom-bins[ch][i-1]*(bottom-top)/max,y2=bottom-bins[ch][i]*(bottom-top)/max;
                 c.drawLine(x1,y1,x2,y2,paint);
             }
         }
         paint.setTextSize(12f*getResources().getDisplayMetrics().density);
-        paint.setColor(Color.WHITE);c.drawText("RGB",8,17*getResources().getDisplayMetrics().density,paint);
+        paint.setColor(Color.WHITE);c.drawText("RGB",left,17*d,paint);
+        int[] legend={0xFFFF6571,0xFF59E8A5,0xFF6EAEFF};
+        for(int i=0;i<3;i++){paint.setColor(legend[i]);paint.setTextSize(10*d);c.drawText(new String[]{"R","G","B"}[i],w-17*d,(30+i*17)*d,paint);}
     }
 }
