@@ -255,12 +255,12 @@ public final class MainActivity extends AppCompatActivity {
             if(provider==null){message("Câmera não inicializada");return;}
             preferred=preferred==Quality.FHD?Quality.UHD:Quality.FHD;bind();});
         Button gridButton=button("Grade",controls,92);
-        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);setHudLabel(gridButton,show?"Grade ON":"Grade");message(show?"Grade ativada":"Grade desativada");});
-        histogramButton=button("RGB ON",controls,85);
-        histogramButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare REC para alterar RGB");return;}showHistogram=!showHistogram;setHudLabel(histogramButton,showHistogram?"RGB ON":"RGB");bind();});
-        Button audioButton=button("Áudio ON",controls,90);
+        gridButton.setOnClickListener(v->{boolean show=grid.getVisibility()!=View.VISIBLE;grid.setVisibility(show?View.VISIBLE:View.GONE);setHudLabel(gridButton,show?"Grade ON":"Grade");((CineHudButton)gridButton).setSelectedStyle(show);message(show?"Grade ativada":"Grade desativada");});
+        histogramButton=button("RGB ON",controls,85);((CineHudButton)histogramButton).setSelectedStyle(true);
+        histogramButton.setOnClickListener(v->{if(recording!=null||stopping){message("Pare REC para alterar RGB");return;}showHistogram=!showHistogram;setHudLabel(histogramButton,showHistogram?"RGB ON":"RGB");((CineHudButton)histogramButton).setSelectedStyle(showHistogram);bind();});
+        Button audioButton=button("Áudio ON",controls,90);((CineHudButton)audioButton).setSelectedStyle(true);
         audioButton.setOnClickListener(v->{
-            showAudio=!showAudio;setHudLabel(audioButton,showAudio?"Áudio ON":"Áudio");updateAudioMeter();
+            showAudio=!showAudio;setHudLabel(audioButton,showAudio?"Áudio ON":"Áudio");((CineHudButton)audioButton).setSelectedStyle(showAudio);updateAudioMeter();
         });
 
         FrameLayout.LayoutParams bottomLp=new FrameLayout.LayoutParams(-1,dp(68),Gravity.BOTTOM);bottomLp.leftMargin=dp(10);bottomLp.rightMargin=dp(10);bottomLp.bottomMargin=dp(6);root.addView(controls,bottomLp);
@@ -317,7 +317,7 @@ public final class MainActivity extends AppCompatActivity {
         evlp.bottomMargin=dp(78);evlp.rightMargin=dp(14);root.addView(exposurePanel,evlp);
         exposurePanel.setVisibility(View.GONE);
         Button evToggle=button("EV",controls,68);
-        evToggle.setOnClickListener(v->exposurePanel.setVisibility(exposurePanel.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE));
+        evToggle.setOnClickListener(v->{boolean open=exposurePanel.getVisibility()!=View.VISIBLE;exposurePanel.setVisibility(open?View.VISIBLE:View.GONE);((CineHudButton)evToggle).setSelectedStyle(open);});
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
         focusMarker.setVisibility(View.GONE);
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(dp(54),dp(54),Gravity.TOP|Gravity.LEFT);
