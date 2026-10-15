@@ -21,7 +21,14 @@ public final class FloatingHud {
   View.OnTouchListener drag=new View.OnTouchListener(){
    private float rawX,rawY,originX,originY;
    @Override public boolean onTouch(View v,MotionEvent e){
-    if(!editing||recording||prefs.getBoolean(id+"_locked",false))return false;
+    if(!editing||recording||prefs.getBoolean(id+"_locked",false)){
+     if(v instanceof android.widget.Button && e.getActionMasked()==MotionEvent.ACTION_UP){
+      android.widget.Button b=(android.widget.Button)v;
+      if(!"REC".equals(b.getTag()) && b.getTag() instanceof String)
+       b.postDelayed(()->b.setText(""),140);
+     }
+     return false;
+    }
     switch(e.getActionMasked()){
      case MotionEvent.ACTION_DOWN: rawX=e.getRawX();rawY=e.getRawY();View panel=panels.get(id);originX=panel.getX();originY=panel.getY();return true;
      case MotionEvent.ACTION_MOVE:
