@@ -16,6 +16,8 @@ public final class CineHudButton extends AppCompatButton {
  private final RectF rect=new RectF();
  private boolean recording;
  private boolean selected;
+ private Drawable centerArt;
+ public void setCenterArt(Drawable icon){centerArt=icon;invalidate();}
  public CineHudButton(Context c){super(c);setAllCaps(false);setTextColor(0xFFF2F3F5);
    setTextSize(12);setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
    setGravity(Gravity.CENTER);setPadding(px(8),0,px(8),0);setBackground(null);
@@ -44,5 +46,14 @@ public final class CineHudButton extends AppCompatButton {
    canvas.drawCircle(cx,cy,px(5),paint);
   }
   super.onDraw(canvas);
+  if(centerArt!=null){
+   int iw=Math.min(centerArt.getIntrinsicWidth(),px(32));
+   int ih=Math.min(centerArt.getIntrinsicHeight(),px(32));
+   if(iw<px(20))iw=px(28);
+   if(ih<px(20))ih=px(28);
+   int left=(getWidth()-iw)/2,top=(getHeight()-ih)/2;
+   centerArt.setBounds(left,top,left+iw,top+ih);
+   centerArt.draw(canvas);
+  }
  }
 }
