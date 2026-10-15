@@ -100,6 +100,29 @@ public final class MainActivity extends AppCompatActivity {
         g.setColor(color);g.setCornerRadius(dp(radius));
         if(border!=0)g.setStroke(dp(1),border);return g;
     }
+    private android.graphics.Bitmap artAtlas;
+    private android.graphics.drawable.Drawable cinematicArt(String kind,int size){
+        try{
+            if(artAtlas==null){
+                try(java.io.InputStream in=getAssets().open("rbcinecam_icons_sprite.png")){
+                    artAtlas=android.graphics.BitmapFactory.decodeStream(in);
+                }
+            }
+            int index;
+            switch(kind){
+                case "switch":index=0;break;case "quality":index=1;break;
+                case "grid":index=2;break;case "rgb":index=3;break;
+                case "audio":index=4;break;case "ev":index=5;break;
+                case "wb":index=6;break;case "iso":index=7;break;
+                case "shutter":index=8;break;case "focus":index=9;break;
+                default:return null;
+            }
+            android.graphics.Bitmap cut=android.graphics.Bitmap.createBitmap(artAtlas,index*40,0,40,40);
+            android.graphics.drawable.BitmapDrawable d=new android.graphics.drawable.BitmapDrawable(getResources(),cut);
+            d.setFilterBitmap(true);d.setBounds(0,0,dp(size),dp(size));d.setAlpha(205);
+            return d;
+        }catch(Exception ignored){return null;}
+    }
     private Button button(String title, LinearLayout bar, int width) {
         CineHudButton b = new CineHudButton(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(11); b.setLetterSpacing(0.035f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
@@ -113,8 +136,8 @@ public final class MainActivity extends AppCompatActivity {
             title.startsWith("S ")||title.startsWith("1/")?"shutter":
             title.startsWith("Foco")?"focus":"quality";
         int size=bar.getOrientation()==LinearLayout.VERTICAL?17:19;
-        HudIcon icon=new HudIcon(kind,0xFFE8B264);
-        icon.setBounds(0,0,dp(size),dp(size));icon.setAlpha(210);
+        android.graphics.drawable.Drawable icon=cinematicArt(kind,size);
+        if(icon==null){HudIcon fallback=new HudIcon(kind,0xFFE8B264);fallback.setBounds(0,0,dp(size),dp(size));icon=fallback;}
         b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(5));
         return b;
     }
