@@ -139,7 +139,7 @@ public final class MainActivity extends AppCompatActivity {
                 artAtlas,tileLeft+minX,minY,maxX-minX+1,maxY-minY+1);
             android.graphics.drawable.BitmapDrawable d=new android.graphics.drawable.BitmapDrawable(getResources(),cut);
             d.setFilterBitmap(true);
-            d.setGravity(Gravity.CENTER);
+            d.setGravity(Gravity.FILL);
             d.setBounds(0,0,dp(size),dp(size));
             d.setAlpha(255);
             return d;
