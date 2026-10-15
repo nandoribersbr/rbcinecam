@@ -131,7 +131,7 @@ public final class MainActivity extends AppCompatActivity {
         CineHudButton b = new CineHudButton(this); b.setText(title); b.setAllCaps(false);
         b.setTextColor(0xFFF0F2F5); b.setTextSize(11); b.setLetterSpacing(0.035f); b.setGravity(Gravity.CENTER); b.setPadding(dp(3),0,dp(3),0); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0);
         
-        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(31)):new LinearLayout.LayoutParams(0,dp(57),1f);lp.setMargins(dp(3),dp(2),dp(3),dp(2));bar.addView(b,lp);
+        LinearLayout.LayoutParams lp=bar.getOrientation()==LinearLayout.VERTICAL?new LinearLayout.LayoutParams(dp(62),dp(31)):new LinearLayout.LayoutParams(0,dp(49),1f);lp.setMargins(dp(3),dp(1),dp(3),dp(1));bar.addView(b,lp);
         String kind=title.equals("REC")?"rec":title.startsWith("Câmera")?"switch":
             title.contains("4K")||title.contains("FHD")?"quality":
             title.startsWith("Grade")?"grid":title.startsWith("RGB")?"rgb":
@@ -139,15 +139,17 @@ public final class MainActivity extends AppCompatActivity {
             title.startsWith("WB")?"wb":title.startsWith("ISO")?"iso":
             title.startsWith("S ")||title.startsWith("1/")?"shutter":
             title.startsWith("Foco")?"focus":"quality";
-        int size=bar.getOrientation()==LinearLayout.VERTICAL?22:28;
+        int size=bar.getOrientation()==LinearLayout.VERTICAL?22:30;
         android.graphics.drawable.Drawable icon=cinematicArt(kind,size);
         if(icon==null){HudIcon fallback=new HudIcon(kind,0xFFE8B264);fallback.setBounds(0,0,dp(size),dp(size));icon=fallback;}
         if(!title.equals("REC")){
             final android.graphics.drawable.Drawable buttonIcon=icon;
             b.setTag(title);b.setContentDescription(title);
-            b.setCompoundDrawables(null,buttonIcon,null,null);
+            ((CineHudButton)b).setCenterArt(buttonIcon);
+            b.setCompoundDrawables(null,null,null,null);
             b.setCompoundDrawablePadding(0);
             b.setOnLongClickListener(v->{
+                ((CineHudButton)b).setCenterArt(null);
                 b.setText(String.valueOf(b.getTag()));
                 b.setCompoundDrawables(buttonIcon,null,null,null);
                 b.setCompoundDrawablePadding(dp(7));
@@ -160,7 +162,8 @@ public final class MainActivity extends AppCompatActivity {
                    event.getActionMasked()==MotionEvent.ACTION_CANCEL){
                     b.postDelayed(()->{
                         b.setText("");
-                        b.setCompoundDrawables(null,buttonIcon,null,null);
+                        b.setCompoundDrawables(null,null,null,null);
+                        ((CineHudButton)b).setCenterArt(buttonIcon);
                         b.setCompoundDrawablePadding(0);
                     },160);
                 }
@@ -214,7 +217,7 @@ public final class MainActivity extends AppCompatActivity {
         FrameLayout.LayoutParams headerLp=new FrameLayout.LayoutParams(-1,dp(49),Gravity.TOP);headerLp.leftMargin=dp(8);headerLp.rightMargin=dp(8);headerLp.topMargin=dp(3);root.addView(header,headerLp);
         
         LinearLayout controls=new LinearLayout(this);bottomHud=controls;controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setBackground(bg(0xEB080D14,0xB08794A1,19)); controls.setPadding(dp(9),dp(5),dp(9),dp(5));
+        controls.setBackground(bg(0xDB080D14,0x808794A1,17)); controls.setPadding(dp(7),dp(4),dp(7),dp(4));
         record=button("REC",controls,100);record.setTextColor(Color.WHITE);((CineHudButton)record).setRecordingStyle(true);record.setEnabled(false);record.setOnClickListener(v->toggle());
         flip=button("Câmera",controls,100);
         flip.setOnClickListener(v->{
@@ -238,11 +241,11 @@ public final class MainActivity extends AppCompatActivity {
             showAudio=!showAudio;setHudLabel(audioButton,showAudio?"Áudio ON":"Áudio");updateAudioMeter();
         });
 
-        FrameLayout.LayoutParams bottomLp=new FrameLayout.LayoutParams(-1,dp(82),Gravity.BOTTOM);bottomLp.leftMargin=dp(10);bottomLp.rightMargin=dp(10);bottomLp.bottomMargin=dp(6);root.addView(controls,bottomLp);
+        FrameLayout.LayoutParams bottomLp=new FrameLayout.LayoutParams(-1,dp(68),Gravity.BOTTOM);bottomLp.leftMargin=dp(10);bottomLp.rightMargin=dp(10);bottomLp.bottomMargin=dp(6);root.addView(controls,bottomLp);
         // Right-hand optical zoom, overlaid on preview as in approved concept.
         sideHud=new LinearLayout(this);sideHud.setOrientation(LinearLayout.VERTICAL);
         sideHud.setGravity(Gravity.CENTER);sideHud.setPadding(dp(4),dp(9),dp(4),dp(9));
-        sideHud.setBackground(bg(0xE50A1018,0xA88D9DA9,18));
+        sideHud.setBackground(bg(0xD70A1018,0x8A8D9DA9,17));
         TextView plus=text("+");plus.setTextSize(24);plus.setGravity(Gravity.CENTER);sideHud.addView(plus);plus.setOnClickListener(v->zoomRuler.changeBy(0.05f));
         zoomRuler=new VerticalZoomView(this);
         sideHud.addView(zoomRuler,new LinearLayout.LayoutParams(dp(58),0,1f));
@@ -254,10 +257,10 @@ public final class MainActivity extends AppCompatActivity {
                 if(z!=null){float ratio=z.getMinZoomRatio()+(z.getMaxZoomRatio()-z.getMinZoomRatio())*fraction;
                     camera.getCameraControl().setZoomRatio(ratio);zoomReadout.setText(String.format(Locale.US,"%.1fx",ratio));}
         });
-        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(77),dp(183),Gravity.RIGHT|Gravity.TOP);
-        sideLp.rightMargin=dp(10);sideLp.topMargin=dp(135);root.addView(sideHud,sideLp);
+        FrameLayout.LayoutParams sideLp=new FrameLayout.LayoutParams(dp(70),dp(164),Gravity.RIGHT|Gravity.TOP);
+        sideLp.rightMargin=dp(11);sideLp.topMargin=dp(144);root.addView(sideHud,sideLp);
         LinearLayout manualHud=new LinearLayout(this);manualHud.setOrientation(LinearLayout.VERTICAL);
-        manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xE40A111B,0xA88D9DA9,18));
+        manualHud.setPadding(dp(5),dp(6),dp(5),dp(6));manualHud.setBackground(bg(0xD70A111B,0x8A8D9DA9,17));
         Button wbButton=button("WB Auto",manualHud,68);wbHud=wbButton;
         Button isoButton=button("ISO Auto",manualHud,68);isoHud=isoButton;
         Button shutterButton=button("S Auto",manualHud,68);shutterHud=shutterButton;
