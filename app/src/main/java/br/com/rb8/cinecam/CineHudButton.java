@@ -30,10 +30,10 @@ public final class CineHudButton extends AppCompatButton {
  @Override protected void onDraw(Canvas canvas){
   float w=getWidth(),h=getHeight(),pad=px(2);rect.set(pad,pad,w-pad,h-pad);
   paint.setStyle(Paint.Style.FILL);
-  paint.setColor(isPressed()?0xFF24323D:0xED0A1017);
+  paint.setColor(isPressed()?0xFF23313B:selected?0xF014202A:0xE30A1017);
   canvas.drawRoundRect(rect,px(13),px(13),paint);
   paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(px(1));
-  paint.setColor(selected?0xFFF3B85C:0x77667889);
+  paint.setColor(selected?0xD9EAB865:isPressed()?0xAAEAB865:0x55667889);
   canvas.drawRoundRect(rect,px(13),px(13),paint);
   if(recording){
    float diameter=Math.min(h-px(6),w*0.46f);
@@ -52,6 +52,7 @@ public final class CineHudButton extends AppCompatButton {
    int ih=Math.min(target,getHeight()-px(8));
    int left=(getWidth()-iw)/2,top=(getHeight()-ih)/2;
    centerArt.setBounds(left,top,left+iw,top+ih);
+   centerArt.setAlpha(selected?255:218);
    centerArt.draw(canvas);
   }
  }
