@@ -142,22 +142,34 @@ public final class MainActivity extends AppCompatActivity {
         int size=bar.getOrientation()==LinearLayout.VERTICAL?22:28;
         android.graphics.drawable.Drawable icon=cinematicArt(kind,size);
         if(icon==null){HudIcon fallback=new HudIcon(kind,0xFFE8B264);fallback.setBounds(0,0,dp(size),dp(size));icon=fallback;}
-        b.setCompoundDrawables(icon,null,null,null);b.setCompoundDrawablePadding(dp(5));
         if(!title.equals("REC")){
+            final android.graphics.drawable.Drawable buttonIcon=icon;
             b.setTag(title);b.setContentDescription(title);
+            b.setCompoundDrawables(null,buttonIcon,null,null);
+            b.setCompoundDrawablePadding(0);
             b.setOnLongClickListener(v->{
-                b.setText(String.valueOf(b.getTag()));b.setGravity(Gravity.CENTER);
+                b.setText(String.valueOf(b.getTag()));
+                b.setCompoundDrawables(buttonIcon,null,null,null);
+                b.setCompoundDrawablePadding(dp(7));
+                b.setGravity(Gravity.CENTER);
                 b.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
                 return true;
             });
             b.setOnTouchListener((v,event)->{
                 if(event.getActionMasked()==MotionEvent.ACTION_UP ||
                    event.getActionMasked()==MotionEvent.ACTION_CANCEL){
-                    b.postDelayed(()->b.setText(""),140);
+                    b.postDelayed(()->{
+                        b.setText("");
+                        b.setCompoundDrawables(null,buttonIcon,null,null);
+                        b.setCompoundDrawablePadding(0);
+                    },160);
                 }
                 return false;
             });
             b.setText("");
+        }else{
+            b.setCompoundDrawables(icon,null,null,null);
+            b.setCompoundDrawablePadding(dp(5));
         }
         return b;
     }
