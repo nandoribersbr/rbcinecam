@@ -117,9 +117,31 @@ public final class MainActivity extends AppCompatActivity {
                 case "shutter":index=8;break;case "focus":index=9;break;
                 default:return null;
             }
-            android.graphics.Bitmap cut=android.graphics.Bitmap.createBitmap(artAtlas,index*40,0,40,40);
+            // Crop each atlas tile to the actual painted artwork. The original
+            // 40px cell includes transparent margins that make the HUD symbols tiny.
+            int tileLeft=index*40;
+            int minX=40,minY=40,maxX=-1,maxY=-1;
+            for(int y=0;y<40;y++){
+                for(int x=0;x<40;x++){
+                    int pixel=artAtlas.getPixel(tileLeft+x,y);
+                    if(android.graphics.Color.alpha(pixel)>32){
+                        if(x<minX)minX=x;
+                        if(y<minY)minY=y;
+                        if(x>maxX)maxX=x;
+                        if(y>maxY)maxY=y;
+                    }
+                }
+            }
+            if(maxX<minX||maxY<minY)return null;
+            minX=Math.max(0,minX-1);minY=Math.max(0,minY-1);
+            maxX=Math.min(39,maxX+1);maxY=Math.min(39,maxY+1);
+            android.graphics.Bitmap cut=android.graphics.Bitmap.createBitmap(
+                artAtlas,tileLeft+minX,minY,maxX-minX+1,maxY-minY+1);
             android.graphics.drawable.BitmapDrawable d=new android.graphics.drawable.BitmapDrawable(getResources(),cut);
-            d.setFilterBitmap(true);d.setBounds(0,0,dp(size),dp(size));d.setAlpha(205);
+            d.setFilterBitmap(true);
+            d.setGravity(Gravity.CENTER);
+            d.setBounds(0,0,dp(size),dp(size));
+            d.setAlpha(255);
             return d;
         }catch(Exception ignored){return null;}
     }
@@ -139,7 +161,7 @@ public final class MainActivity extends AppCompatActivity {
             title.startsWith("WB")?"wb":title.startsWith("ISO")?"iso":
             title.startsWith("S ")||title.startsWith("1/")?"shutter":
             title.startsWith("Foco")?"focus":"quality";
-        int size=bar.getOrientation()==LinearLayout.VERTICAL?22:30;
+        int size=bar.getOrientation()==LinearLayout.VERTICAL?25:35;
         android.graphics.drawable.Drawable icon=cinematicArt(kind,size);
         if(icon==null){HudIcon fallback=new HudIcon(kind,0xFFE8B264);fallback.setBounds(0,0,dp(size),dp(size));icon=fallback;}
         if(!title.equals("REC")){
