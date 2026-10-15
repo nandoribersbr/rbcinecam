@@ -47,10 +47,9 @@ public final class CineHudButton extends AppCompatButton {
   }
   super.onDraw(canvas);
   if(centerArt!=null){
-   int iw=Math.min(centerArt.getIntrinsicWidth(),px(32));
-   int ih=Math.min(centerArt.getIntrinsicHeight(),px(32));
-   if(iw<px(20))iw=px(28);
-   if(ih<px(20))ih=px(28);
+   int target=px(getHeight()>px(42)?34:25);
+   int iw=Math.min(target,getWidth()-px(12));
+   int ih=Math.min(target,getHeight()-px(8));
    int left=(getWidth()-iw)/2,top=(getHeight()-ih)/2;
    centerArt.setBounds(left,top,left+iw,top+ih);
    centerArt.draw(canvas);
