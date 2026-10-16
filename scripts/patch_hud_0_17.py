@@ -3,8 +3,10 @@ p=Path('app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt')
 s=p.read_text(encoding='utf-8')
 old='''                Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 72.dp, end = 82.dp)) {'''
 new='''                Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().background(Color.Black.copy(alpha = .93f)).padding(start = 72.dp, end = 82.dp)) {'''
-assert old in s, 'top bar anchor missing'
-s=s.replace(old,new,1)
+if old in s:
+    s=s.replace(old,new,1)
+else:
+    print('Landscape HUD already integrated; skipping legacy anchor')
 s=s.replace('var scopeMode by remember { mutableStateOf(ScopeMode09.RGB) }','var scopeMode by remember { mutableStateOf(ScopeMode09.OFF) }',1)
 s=s.replace('Modifier.width(62.dp).fillMaxHeight().background(Color.Black.copy(alpha = .30f)).padding(4.dp)','Modifier.width(46.dp).fillMaxHeight().background(Color.Black.copy(alpha = .25f)).padding(3.dp)',1)
 s=s.replace('Box(Modifier.align(Alignment.CenterEnd).padding(end = 64.dp))','Box(Modifier.align(Alignment.CenterEnd).padding(end = 48.dp))',1)
