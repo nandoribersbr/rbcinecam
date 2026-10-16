@@ -199,7 +199,6 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
                         CinemaAction09(Icons.Filled.Cameraswitch, "LENTE", false, !recording, Modifier.weight(.68f)) { preview?.let { controller.switchLens(owner, it); iso="AUTO"; shutter="AUTO"; wb="AUTO"; focus="AF-C"; ev="0"; status="CÂMERA TROCADA" } }
                         Column(Modifier.width(86.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             Box(Modifier.size(53.dp).border(2.dp, if(recording) R09 else Color.White, CircleShape).padding(5.dp).clip(CircleShape).background(if(recording) Color(0xFFB71C1C) else R09).clickable {
-                                {
                         if (mode == CameraMode.VIDEO) {
                             if (recording) { controller.stopRecording(); status = "SALVANDO" }
                             else controller.startRecording(audioPermissionGranted) { e ->
