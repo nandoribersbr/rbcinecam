@@ -57,6 +57,9 @@ public final class FloatingHud {
    .putFloat(id+"_y",v.getY()/Math.max(1,root.getHeight()-v.getHeight())).apply();
  }
  public boolean isEditing(){return editing;}
+ public boolean isShowing(String id){View v=panels.get(id);return v!=null&&v.getVisibility()==View.VISIBLE;}
+ public void setTemporaryVisible(String id,boolean visible){View v=panels.get(id);if(v!=null)v.setVisibility(visible?View.VISIBLE:View.GONE);}
+
  public void setRecording(boolean b){recording=b;if(b)editing=false;}
  public void toggleEdit(){if(!recording)editing=!editing;}
  public boolean isVisible(String id){return prefs.getBoolean(id+"_visible",true);}
