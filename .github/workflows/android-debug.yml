@@ -24,28 +24,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Apply RB CineCam 0.11 structural UI patch
-        run: python3 scripts/patch_ui_0_11.py
-      - name: Apply RB CineCam 0.12 capture controls
-        run: python3 scripts/patch_capture_0_12.py
-      - name: Apply RB CineCam 0.13 clean preview and safe reconfiguration
-        run: python3 scripts/patch_capture_0_13.py
-      - name: Apply RB CineCam 0.14 full-bleed translucent UI
-        run: python3 scripts/patch_ui_0_14.py
-      - name: Apply RB CineCam 0.15 Large Format
-        run: python3 scripts/patch_capture_0_15.py
-      - name: Apply RB CineCam 0.16 transactional capture and compact UI
-        run: python3 scripts/patch_capture_ui_0_16.py
-      - name: Apply RB CineCam 0.17 professional HUD
-        run: python3 scripts/patch_hud_0_17.py
-      - name: Verify 0.16 contract
+      - name: Verify integrated landscape source
         run: |
-          grep -q 'versionName = "0.17.0-alpha"' app/build.gradle.kts
-          grep -q 'versionCode = 18' app/build.gradle.kts
-          grep -q 'CaptureTransactionPolicy' app/src/main/java/br/com/rb8digital/rbcinecam/camera/CaptureTransactionPolicy.kt
-          grep -q 'activeQuality = requestedQuality' app/src/main/java/br/com/rb8digital/rbcinecam/camera/RBCameraController.kt
-          grep -q 'LF 1.90' app/src/main/java/br/com/rb8digital/rbcinecam/camera/CaptureSettingsPolicy.kt
-          grep -q 'LF 1.43' app/src/main/java/br/com/rb8digital/rbcinecam/camera/CaptureSettingsPolicy.kt
+          grep -q 'CinemaAction09' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
+          grep -q 'controller.startRecording' app/src/main/java/br/com/rb8digital/rbcinecam/ui/CameraScreen09.kt
+          grep -q 'sensorLandscape' app/src/main/AndroidManifest.xml
       - name: Unit tests
         run: gradle testDebugUnitTest --stacktrace
       - name: Build debug APK
