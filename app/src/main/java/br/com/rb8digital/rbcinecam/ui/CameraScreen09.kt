@@ -218,12 +218,10 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
                             Text(if(recording) formatDuration09(elapsed) else if(mode == CameraMode.VIDEO) "REC" else "FOTO", color=R09, fontSize=9.sp, fontWeight=FontWeight.Bold)
                         }
                     }
-                }
             }
         }
     }
 }
-
 
 @Composable private fun CinemaAction09(icon: ImageVector, label: String, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, value: String = "", onClick: () -> Unit) {
     Column(modifier.fillMaxHeight().clip(RoundedCornerShape(9.dp)).background(if(selected) Color(0xFF24262C) else PS09).clickable(enabled=enabled, onClick=onClick).padding(horizontal=2.dp, vertical=3.dp), horizontalAlignment=Alignment.CenterHorizontally, verticalArrangement=Arrangement.Center) {
