@@ -71,6 +71,11 @@ public final class MainActivity extends AppCompatActivity {
     private ManualCameraControls manualControls=new ManualCameraControls();
     private FrameLayout rootFrame;
     private boolean hudVisible=true;
+    private boolean cinemaMode=false;
+    private final String[] cinemaPanels={"rgb","audio","manual","zoom","dock","top"};
+    private final boolean[] cinemaSnapshot=new boolean[6];
+    private long lastPreviewTap=0;
+    private View exposureDrawer;
     private LinearLayout bottomHud;
     private android.widget.LinearLayout sideHud;
     private android.widget.TextView focusMarker;
@@ -315,7 +320,7 @@ public final class MainActivity extends AppCompatActivity {
         // EV appears only as a compact drawer above the dock, toggled by its real EV control.
         FrameLayout.LayoutParams evlp=new FrameLayout.LayoutParams(dp(275),dp(46),Gravity.RIGHT|Gravity.BOTTOM);
         evlp.bottomMargin=dp(78);evlp.rightMargin=dp(14);root.addView(exposurePanel,evlp);
-        exposurePanel.setVisibility(View.GONE);
+        exposurePanel.setVisibility(View.GONE);exposureDrawer=exposurePanel;
         Button evToggle=button("EV",controls,68);
         evToggle.setOnClickListener(v->{boolean open=exposurePanel.getVisibility()!=View.VISIBLE;exposurePanel.setVisibility(open?View.VISIBLE:View.GONE);((CineHudButton)evToggle).setSelectedStyle(open);});
         focusMarker=text("□");focusMarker.setTextSize(32);focusMarker.setTextColor(amber);focusMarker.setGravity(Gravity.CENTER);
@@ -331,13 +336,13 @@ public final class MainActivity extends AppCompatActivity {
         floatingHud.register("top",header);
         TextView rescue=text("✥ HUD");
         rescue.setTextColor(amber);rescue.setBackground(bg(0xEB0B111A,0xFF8C96A0,10));
-        rescue.setOnClickListener(v->showFloatingHudSettings());
+        rescue.setOnClickListener(v->{if(cinemaMode)toggleCinemaMode();else showFloatingHudSettings();});
         FrameLayout.LayoutParams rescueLp=new FrameLayout.LayoutParams(dp(83),dp(39),Gravity.RIGHT|Gravity.BOTTOM);
         rescueLp.bottomMargin=dp(96);rescueLp.rightMargin=dp(18);
         root.addView(rescue,rescueLp);hudRescue=rescue;
         refreshHudRescue();
         brand.setOnClickListener(v->{
-            String[] actions={"Galeria • reproduzir vídeos","Perfis de enquadramento cinematográfico","Gerenciar HUD flutuante","Alternar HUD limpo"};
+            String[] actions={"Galeria • reproduzir vídeos","Perfis de enquadramento cinematográfico","Gerenciar HUD flutuante","Modo Cinema • HUD limpo"};
             new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("RB CINECAM / PRO")
                 .setItems(actions,(dialog,which)->{
                     if(which==0){
@@ -353,17 +358,17 @@ public final class MainActivity extends AppCompatActivity {
                                 d.dismiss();
                             }).setNegativeButton("Fechar",null).show();
                     }else if(which==2){showFloatingHudSettings();}else{
-                        hudVisible=!hudVisible;
-                        floatingHud.setVisible("dock",hudVisible);
-                        floatingHud.setVisible("manual",hudVisible);
-                        floatingHud.setVisible("zoom",hudVisible);
-                        exposurePanel.setVisibility(View.GONE);
-                        refreshHudRescue();
+                        toggleCinemaMode();
                     }
                 }).show();
         });
         setContentView(root);
         preview.setOnTouchListener((v,e)->{
+            if(e.getAction()==MotionEvent.ACTION_UP){
+                long now=android.os.SystemClock.uptimeMillis();
+                if(now-lastPreviewTap<350){lastPreviewTap=0;toggleCinemaMode();return true;}
+                lastPreviewTap=now;
+            }
             if(e.getAction()==MotionEvent.ACTION_UP&&camera!=null){
                 MeteringPoint point=preview.getMeteringPointFactory().createPoint(e.getX(),e.getY());
                 FrameLayout.LayoutParams focusLp=(FrameLayout.LayoutParams)focusMarker.getLayoutParams();focusLp.leftMargin=(int)e.getX()-dp(27);focusLp.topMargin=(int)e.getY()-dp(27);focusMarker.setLayoutParams(focusLp);focusMarker.setVisibility(View.VISIBLE);focusMarker.postDelayed(()->focusMarker.setVisibility(View.GONE),1100);
@@ -374,9 +379,25 @@ public final class MainActivity extends AppCompatActivity {
         });
         if(cameraGranted())startCamera();else request.launch(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO});
     }
+    private void toggleCinemaMode(){
+        if(floatingHud==null)return;
+        cinemaMode=!cinemaMode;
+        if(cinemaMode){
+            if(floatingHud.isEditing())floatingHud.toggleEdit();
+            for(int i=0;i<cinemaPanels.length;i++){
+                cinemaSnapshot[i]=floatingHud.isShowing(cinemaPanels[i]);
+                floatingHud.setTemporaryVisible(cinemaPanels[i],false);
+            }
+            if(exposureDrawer!=null)exposureDrawer.setVisibility(View.GONE);
+        }else{
+            for(int i=0;i<cinemaPanels.length;i++)
+                floatingHud.setTemporaryVisible(cinemaPanels[i],cinemaSnapshot[i]);
+        }
+        refreshHudRescue();
+    }
     private void refreshHudRescue(){
         if(hudRescue!=null&&floatingHud!=null)hudRescue.setVisibility(
-            floatingHud.isEditing()||!floatingHud.isVisible("top")?View.VISIBLE:View.GONE);
+            cinemaMode||floatingHud.isEditing()||!floatingHud.isShowing("top")?View.VISIBLE:View.GONE);
     }
     private void showFloatingHudSettings(){
         if(recording!=null||stopping){message("Pare REC antes de editar o HUD");return;}
