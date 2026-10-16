@@ -130,13 +130,7 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
             )
             gallery -> Gallery09(onCamera = { gallery = false }, onVideo = { playerUri = it })
             !cameraPermissionGranted -> Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { Text("Autorize a câmera para iniciar o RB CineCam.", color = Color.White) }
-            else -> Row(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing)) {
-                LeftRail09(mode, !recording,
-                    onVideo = { mode = CameraMode.VIDEO; status = "MODO VÍDEO" },
-                    onPhoto = { mode = CameraMode.PHOTO; status = "MODO FOTO" },
-                    onGallery = { gallery = true })
-
-                Column(Modifier.weight(1f).fillMaxHeight()) {
+            else -> Column(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing)) {
                     TopHud10(
                         mode = mode,
                         recording = recording,
@@ -187,17 +181,25 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
                         }
                         AudioStrip09(audio, recording, recordingDb, audioPermissionGranted)
                     }
-                    Manual09(iso, shutter, wb, focus, ev, !recording,
-                        { iso = controller.cycleIso(); status = "ISO $iso" },
-                        { shutter = controller.cycleShutter(); status = "SHUTTER $shutter" },
-                        { wb = controller.cycleWhiteBalance(); status = "WB $wb" },
-                        { manualFocusAvailable = controller.manualFocusSupported(); focusPanel = true },
-                        { ev = controller.cycleEv(); status = "EV $ev" })
-                }
 
-                RightRail09(mode, recording, elapsed,
-                    onSwitch = { preview?.let { controller.switchLens(owner, it); iso="AUTO"; shutter="AUTO"; wb="AUTO"; focus="AF-C"; ev="0"; status="CÂMERA TROCADA" } },
-                    onPrimary = {
+                    Row(
+                        Modifier.fillMaxWidth().height(72.dp).background(P09).padding(horizontal = 7.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        CinemaAction09(Icons.Filled.Videocam, "VIDEO", mode == CameraMode.VIDEO, !recording, Modifier.weight(.72f)) { mode = CameraMode.VIDEO; status = "MODO VÍDEO" }
+                        CinemaAction09(Icons.Filled.PhotoCamera, "FOTO", mode == CameraMode.PHOTO, !recording, Modifier.weight(.65f)) { mode = CameraMode.PHOTO; status = "MODO FOTO" }
+                        CinemaAction09(Icons.Filled.Tune, "WB", false, !recording, Modifier.weight(.7f), wb) { wb = controller.cycleWhiteBalance(); status = "WB $wb" }
+                        CinemaAction09(Icons.Filled.Iso, "ISO", false, !recording, Modifier.weight(.65f), iso) { iso = controller.cycleIso(); status = "ISO $iso" }
+                        CinemaAction09(Icons.Filled.ShutterSpeed, "SHUTTER", false, !recording, Modifier.weight(.86f), shutter) { shutter = controller.cycleShutter(); status = "SHUTTER $shutter" }
+                        CinemaAction09(Icons.Filled.CenterFocusStrong, "FOCO", false, true, Modifier.weight(.75f), focus) { manualFocusAvailable = controller.manualFocusSupported(); focusPanel = true }
+                        CinemaAction09(Icons.Filled.GridOn, "GRID", guide != GuideMode.OFF, true, Modifier.weight(.65f)) { guide = GuideMode.entries[(guide.ordinal + 1) % GuideMode.entries.size] }
+                        CinemaAction09(Icons.Filled.Equalizer, "SCOPES", scopeMode != ScopeMode09.OFF, true, Modifier.weight(.78f)) { scopeMode = ScopeMode09.entries[(scopeMode.ordinal + 1) % ScopeMode09.entries.size] }
+                        CinemaAction09(Icons.Filled.PhotoLibrary, "GALERIA", false, !recording, Modifier.weight(.75f)) { gallery = true }
+                        CinemaAction09(Icons.Filled.Cameraswitch, "LENTE", false, !recording, Modifier.weight(.68f)) { preview?.let { controller.switchLens(owner, it); iso="AUTO"; shutter="AUTO"; wb="AUTO"; focus="AF-C"; ev="0"; status="CÂMERA TROCADA" } }
+                        Column(Modifier.width(86.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Box(Modifier.size(53.dp).border(2.dp, if(recording) R09 else Color.White, CircleShape).padding(5.dp).clip(CircleShape).background(if(recording) Color(0xFFB71C1C) else R09).clickable {
+                                {
                         if (mode == CameraMode.VIDEO) {
                             if (recording) { controller.stopRecording(); status = "SALVANDO" }
                             else controller.startRecording(audioPermissionGranted) { e ->
@@ -211,9 +213,24 @@ fun CameraScreen09(cameraPermissionGranted: Boolean, audioPermissionGranted: Boo
                                 }
                             }
                         } else controller.takePhoto { ok, msg -> status = msg; if (ok) free = storageLabel09(context.filesDir.absolutePath) }
-                    })
+                            }, contentAlignment = Alignment.Center) {
+                                if(recording) Icon(Icons.Filled.Stop, "Parar gravação", tint=Color.White, modifier=Modifier.size(23.dp))
+                            }
+                            Text(if(recording) formatDuration09(elapsed) else if(mode == CameraMode.VIDEO) "REC" else "FOTO", color=R09, fontSize=9.sp, fontWeight=FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+
+@Composable private fun CinemaAction09(icon: ImageVector, label: String, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, value: String = "", onClick: () -> Unit) {
+    Column(modifier.fillMaxHeight().clip(RoundedCornerShape(9.dp)).background(if(selected) Color(0xFF24262C) else PS09).clickable(enabled=enabled, onClick=onClick).padding(horizontal=2.dp, vertical=3.dp), horizontalAlignment=Alignment.CenterHorizontally, verticalArrangement=Arrangement.Center) {
+        Icon(icon, label, tint=if(!enabled) Color.Gray else if(selected) R09 else Color.White, modifier=Modifier.size(19.dp))
+        Text(label, color=if(enabled) Color.White else Color.Gray, fontSize=8.sp, maxLines=1)
+        if(value.isNotBlank()) Text(value, color=Color.LightGray, fontSize=8.sp, maxLines=1)
     }
 }
 
