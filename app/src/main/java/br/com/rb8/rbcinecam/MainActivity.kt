@@ -17,10 +17,7 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.core.FocusMeteringAction
-import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.video.FileOutputOptions
-import androidx.camera.video.PendingRecording
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -37,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -47,15 +43,10 @@ import androidx.camera.view.PreviewView
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
-import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.concurrent.TimeUnit
-import android.os.Environment
 import android.content.ContentValues
-import android.util.Size
 import android.provider.MediaStore.Video
 import android.provider.MediaStore.Images
-import androidx.camera.core.AspectRatio
 import androidx.camera.video.FallbackStrategy
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.delay
