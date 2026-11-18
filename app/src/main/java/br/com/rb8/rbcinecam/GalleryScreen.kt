@@ -15,9 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
+import android.widget.VideoView
+import android.widget.MediaController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -61,13 +60,15 @@ fun InternalGallery(onClose:()->Unit){
             }
         }
         if(selected != null) {
-            val player=remember(selected) { ExoPlayer.Builder(context).build().apply {
-                setMediaItem(MediaItem.fromUri(selected!!));prepare();playWhenReady=true
+            val player=remember(selected) { VideoView(context).apply {
+                setVideoURI(selected!!)
+                val controller=MediaController(context)
+                controller.setAnchorView(this)
+                setMediaController(controller)
+                setOnPreparedListener { start() }
             } }
-            DisposableEffect(player) { onDispose{player.release()} }
-            AndroidView(factory={ PlayerView(it).apply {
-                this.player=player; useController=true
-            } },modifier=Modifier.fillMaxSize())
+            DisposableEffect(player) { onDispose{player.stopPlayback()} }
+            AndroidView(factory={player},modifier=Modifier.fillMaxSize())
         } else if(failure!=null) Text(failure!!,color=Color.Red)
         else if(list.isEmpty()) Text("Nenhum vídeo gravado pelo RB CineCam",color=Color.LightGray)
         else LazyColumn(verticalArrangement=Arrangement.spacedBy(6.dp)){
