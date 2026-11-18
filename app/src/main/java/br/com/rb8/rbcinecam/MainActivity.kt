@@ -5,6 +5,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.BatteryManager
+import android.os.Environment
+import android.os.StatFs
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.provider.MediaStore
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
@@ -27,6 +34,9 @@ import androidx.camera.video.VideoRecordEvent
 import androidx.camera.video.MediaStoreOutputOptions
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -60,6 +70,15 @@ class MainActivity: ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        WindowInsetsControllerCompat(window,window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         setContent { CineCamScreen() }
     }
 }
@@ -71,16 +90,16 @@ private fun Icon(name: String, label: String, modifier: Modifier = Modifier) {
         model = remember(name) { ImageRequest.Builder(context)
             .data("file:///android_asset/icons/$name.svg")
             .decoderFactory(SvgDecoder.Factory()).build() },
-        contentDescription = label, modifier = modifier.size(27.dp)
+        contentDescription = label, modifier = modifier.size(22.dp)
     )
 }
 
 @Composable
 private fun CineButton(icon: String, label: String, enabled: Boolean = true, highlighted: Boolean = false, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min=58.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min=44.dp)) {
         Surface(onClick=onClick, enabled=enabled, shape=RoundedCornerShape(12.dp),
             color=if(highlighted) Blue.copy(alpha=.22f) else Panel) {
-            Box(Modifier.size(49.dp), contentAlignment=Alignment.Center) { Icon(icon, label) }
+            Box(Modifier.size(37.dp), contentAlignment=Alignment.Center) { Icon(icon, label) }
         }
         Text(label, color=if(enabled) Color.White else Color.Gray, style=MaterialTheme.typography.labelSmall,
             maxLines=1, overflow=TextOverflow.Ellipsis)
@@ -103,6 +122,12 @@ fun CineCamScreen() {
     var grid by remember { mutableStateOf(true) }
     var mic by remember { mutableStateOf(true) }
     var settings by remember { mutableStateOf(false) }
+    var gallery by remember { mutableStateOf(false) }
+    var hist by remember { mutableStateOf(false) }
+    var zebra by remember { mutableStateOf(false) }
+    var peaking by remember { mutableStateOf(false) }
+    var exposureIndex by remember { mutableIntStateOf(0) }
+    var actualQuality by remember { mutableStateOf(Quality.FHD) }
     var quality by remember { mutableStateOf(Quality.FHD) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var recording by remember { mutableStateOf<Recording?>(null) }
@@ -134,6 +159,7 @@ fun CineCamScreen() {
             }
             supportedQualities = if (info != null) QualitySelector.getSupportedQualities(info) else listOf(Quality.FHD)
             val chosen = if (supportedQualities.contains(quality)) quality else supportedQualities.firstOrNull() ?: Quality.SD
+            actualQuality=chosen
             val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
             val photo = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
             val recorder = Recorder.Builder().setQualitySelector(
@@ -146,6 +172,7 @@ fun CineCamScreen() {
             imageCapture=photo
             videoCapture=video
             zoom=1f
+            exposureIndex=0
             view.setOnTouchListener { _, event ->
                 if(event.action == MotionEvent.ACTION_UP) {
                     val point=view.meteringPointFactory.createPoint(event.x,event.y)
@@ -156,6 +183,7 @@ fun CineCamScreen() {
             error=null
         } catch (ex: Exception) {
             error="Configuração de captura incompatível: ${ex.message}"
+            if (quality == Quality.UHD) quality = Quality.FHD
             camera=null; imageCapture=null; videoCapture=null
         }
     }
@@ -218,11 +246,14 @@ fun CineCamScreen() {
 
     MaterialTheme(colorScheme=darkColorScheme(primary=Blue, background=Ink)) {
         Surface(color=Ink, modifier=Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().padding(8.dp)) {
+            if(gallery) {
+                InternalGallery(onClose={gallery=false})
+            } else Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(4.dp)) {
                 Row(verticalAlignment=Alignment.CenterVertically,
-                    horizontalArrangement=Arrangement.spacedBy(14.dp),modifier=Modifier.fillMaxWidth()) {
+                    horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth().height(36.dp)) {
                     Text("RB CineCam",color=Color.White,fontWeight=FontWeight.Bold)
-                    Text(if(quality==Quality.UHD) "4K" else "FHD",color=Color.White)
+                    Text(if(actualQuality==Quality.UHD) "4K" else if(actualQuality==Quality.FHD) "FHD" else "HD",color=Color.White)
+                    Text("FPS automático",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
                     Text(if(mic && audioGranted) "MIC ON" else "MIC OFF",color=Color.LightGray)
                     Text(if(isRecording) "REC  ${elapsed}s" else "PRONTO",color=if(isRecording) Red else Color.Green)
                     Spacer(Modifier.weight(1f))
@@ -231,9 +262,11 @@ fun CineCamScreen() {
                 Row(modifier=Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black,RoundedCornerShape(12.dp))) {
                         AndroidView(factory={ ctx -> PreviewView(ctx).apply {
-                            scaleType=PreviewView.ScaleType.FILL_CENTER
+                            implementationMode=PreviewView.ImplementationMode.COMPATIBLE
+                            scaleType=PreviewView.ScaleType.FIT_CENTER
                             previewView=this
                         } }, modifier=Modifier.fillMaxSize())
+                        if(hist || zebra || peaking) MonitorOverlay(previewView, hist, zebra, peaking)
                         if(grid) {
                             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                                 val w=size.width; val h=size.height
@@ -248,7 +281,7 @@ fun CineCamScreen() {
                             }
                         }
                     }
-                    Column(Modifier.width(88.dp),horizontalAlignment=Alignment.CenterHorizontally,
+                    Column(Modifier.width(68.dp),horizontalAlignment=Alignment.CenterHorizontally,
                         verticalArrangement=Arrangement.SpaceEvenly) {
                         CineButton("fotografar","Foto",enabled=!isRecording && imageCapture!=null){photograph()}
                         CineButton("trocar_camera","Câmera",enabled=!isRecording && availableFront) {
@@ -256,18 +289,15 @@ fun CineCamScreen() {
                         }
                         Surface(onClick={::startOrStop},enabled=videoCapture!=null,shape=RoundedCornerShape(60.dp),
                             color=if(isRecording) Red else Panel) {
-                            Box(Modifier.size(72.dp),contentAlignment=Alignment.Center) {
+                            Box(Modifier.size(55.dp),contentAlignment=Alignment.Center) {
                                 Icon(if(isRecording) "parar" else "gravar",if(isRecording) "Parar" else "Gravar",Modifier.size(44.dp))
                             }
                         }
-                        CineButton("galeria","Galeria",enabled=!isRecording) {
-                            try {context.startActivity(Intent(Intent.ACTION_VIEW).apply {type="video/*";flags=Intent.FLAG_ACTIVITY_NEW_TASK})}
-                            catch(ex:Exception) {error="Nenhuma galeria de vídeos disponível"}
-                        }
+                        CineButton("galeria","Galeria",enabled=!isRecording) { gallery=true }
                     }
                 }
                 Spacer(Modifier.height(7.dp))
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                Row(Modifier.fillMaxWidth().height(61.dp),verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.SpaceEvenly) {
                     CineButton("zoom_menos","Zoom -",enabled=camera!=null) {
                         camera?.cameraControl?.setZoomRatio((zoom-.25f).coerceAtLeast(1f))
@@ -279,7 +309,25 @@ fun CineCamScreen() {
                         zoom=(zoom+.25f).coerceAtMost(max)
                         camera?.cameraControl?.setZoomRatio(zoom)
                     }
+                    CineButton("compensacao_ev","EV -",enabled=camera?.cameraInfo?.exposureState?.isExposureCompensationSupported==true) {
+                        val c=camera
+                        if(c!=null) { val range=c.cameraInfo.exposureState.exposureCompensationRange
+                            exposureIndex=(exposureIndex-1).coerceAtLeast(range.lower)
+                            c.cameraControl.setExposureCompensationIndex(exposureIndex)
+                        }
+                    }
+                    Text("EV "+exposureIndex,color=Color.White,style=MaterialTheme.typography.labelSmall)
+                    CineButton("compensacao_ev","EV +",enabled=camera?.cameraInfo?.exposureState?.isExposureCompensationSupported==true) {
+                        val c=camera
+                        if(c!=null) { val range=c.cameraInfo.exposureState.exposureCompensationRange
+                            exposureIndex=(exposureIndex+1).coerceAtMost(range.upper)
+                            c.cameraControl.setExposureCompensationIndex(exposureIndex)
+                        }
+                    }
                     CineButton("grade_tercos","Grade",highlighted=grid){ grid=!grid }
+                    CineButton("histograma","Hist.",highlighted=hist){hist=!hist}
+                    CineButton("zebra","Zebra",highlighted=zebra){zebra=!zebra}
+                    CineButton("peaking","Peaking",highlighted=peaking){peaking=!peaking}
                     CineButton(if(mic) "microfone" else "microfone_mudo","Áudio",enabled=!isRecording){
                         if(!audioGranted && !mic) requestPermissions.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
                         mic=!mic
@@ -304,7 +352,7 @@ fun CineCamScreen() {
                             }
                         }
                         Text("Toque na imagem para ajustar foco e exposição automáticos.")
-                        Text("ISO, obturador manual, LOG, zebra, histograma e peaking exigem implementação e verificação do hardware; não são exibidos como controles ativos.")
+                        Text("ISO, obturador e balanço de branco manuais, FPS fixo e LOG exigem implementação Camera2 e testes de hardware. Histograma, zebra e peaking são estimativas sobre a pré-visualização, não instrumentos calibrados.")
                     }
                 },
                 confirmButton={TextButton(onClick={settings=false}){Text("Fechar")}})
