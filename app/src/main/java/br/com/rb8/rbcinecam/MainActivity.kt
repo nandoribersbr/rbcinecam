@@ -266,7 +266,7 @@ fun CineCamScreen() {
                             scaleType=PreviewView.ScaleType.FIT_CENTER
                             previewView=this
                         } }, modifier=Modifier.fillMaxSize())
-                        if(hist || zebra || peaking) MonitorOverlay(previewView, hist, zebra, peaking)
+                        if(hist || zebra || peaking) previewView?.let { MonitorOverlay(it, hist, zebra, peaking) }
                         if(grid) {
                             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                                 val w=size.width; val h=size.height
