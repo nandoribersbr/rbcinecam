@@ -9,6 +9,11 @@ import android.os.BatteryManager
 import android.os.Environment
 import android.os.StatFs
 import android.view.WindowManager
+import android.widget.Toast
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -128,6 +133,10 @@ fun CineCamScreen() {
     var gallery by remember { mutableStateOf(false) }
     var toolsOpen by remember { mutableStateOf(false) }
     var recordingPhase by remember { mutableStateOf(false) }
+    var captureMode by remember { mutableStateOf("iniciando") }
+    var notification by remember { mutableStateOf("Inicializando a câmera…") }
+    var sessionEpoch by remember { mutableIntStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
     var hist by remember { mutableStateOf(false) }
     var zebra by remember { mutableStateOf(false) }
     var peaking by remember { mutableStateOf(false) }
@@ -153,8 +162,13 @@ fun CineCamScreen() {
     LaunchedEffect(cameraGranted, lens, quality, previewView) {
         if (!cameraGranted || previewView == null) return@LaunchedEffect
         val view = previewView ?: return@LaunchedEffect
-        val provider = try { providerFuture.get() } catch (ex: Exception) {
-            error = "Erro ao iniciar câmera: ${ex.message}"; return@LaunchedEffect
+        captureMode = "iniciando"
+        notification = "Abrindo câmera…"
+        val provider = try { withContext(Dispatchers.IO) { providerFuture.get() } } catch (ex: Exception) {
+            captureMode="erro"
+            error = "Erro ao iniciar câmera: ${ex.message}"
+            notification=error ?: "Erro"
+            return@LaunchedEffect
         }
         try {
             availableFront = provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
@@ -167,15 +181,53 @@ fun CineCamScreen() {
             actualQuality=chosen
             val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
             val photo = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
-            val recorder = Recorder.Builder().setQualitySelector(
-                QualitySelector.from(chosen, FallbackStrategy.lowerQualityOrHigherThan(chosen))
-            ).build()
-            val video = VideoCapture.withOutput(recorder)
+            fun recordingUseCase(q: Quality): VideoCapture<Recorder> {
+                val recorder=Recorder.Builder().setQualitySelector(
+                    QualitySelector.from(q, FallbackStrategy.lowerQualityOrHigherThan(q))
+                ).build()
+                return VideoCapture.withOutput(recorder)
+            }
             provider.unbindAll()
-            val bound = provider.bindToLifecycle(lifecycleOwner, selector, preview, photo, video)
+            var workingVideo:VideoCapture<Recorder>? = null
+            var workingCamera:Camera? = null
+            var workingPhoto:ImageCapture? = null
+            // Some devices cannot combine preview+photo+video at the selected resolution.
+            // Recording takes priority over still photography.
+            val qualities = listOf(chosen,Quality.FHD,Quality.HD,Quality.SD).distinct()
+            val diagnostics = mutableListOf<String>()
+            for(q in qualities) {
+                if(q != chosen && !supportedQualities.contains(q)) continue
+                try {
+                    val v=recordingUseCase(q)
+                    provider.unbindAll()
+                    val c=provider.bindToLifecycle(lifecycleOwner,selector,preview,photo,v)
+                    workingCamera=c;workingVideo=v;workingPhoto=photo;actualQuality=q
+                    captureMode="foto_video"
+                    break
+                } catch(ex:Exception) {
+                    diagnostics.add("foto+vídeo ${q}: ${ex.javaClass.simpleName}")
+                }
+                try {
+                    val v=recordingUseCase(q)
+                    provider.unbindAll()
+                    val c=provider.bindToLifecycle(lifecycleOwner,selector,preview,v)
+                    workingCamera=c;workingVideo=v;workingPhoto=null;actualQuality=q
+                    captureMode="video"
+                    notification="Modo vídeo: foto indisponível nesta configuração"
+                    break
+                } catch(ex:Exception) {
+                    diagnostics.add("vídeo ${q}: ${ex.javaClass.simpleName}")
+                }
+            }
+            if(workingCamera==null || workingVideo==null) {
+                captureMode="erro"
+                notification="Câmera não conseguiu habilitar gravação"
+                throw IllegalStateException(diagnostics.joinToString("; "))
+            }
+            val bound=workingCamera
             camera=bound
-            imageCapture=photo
-            videoCapture=video
+            imageCapture=workingPhoto
+            videoCapture=workingVideo
             zoom=1f
             exposureIndex=0
             view.setOnTouchListener { _, event ->
@@ -186,7 +238,10 @@ fun CineCamScreen() {
                 } else true
             }
             error=null
+            if(captureMode=="foto_video") notification="Câmera pronta para gravar"
         } catch (ex: Exception) {
+            captureMode="erro"
+            notification="Falha ao abrir sessão de vídeo"
             error="Configuração de captura incompatível: ${ex.message}"
             if (quality == Quality.UHD) quality = Quality.FHD
             camera=null; imageCapture=null; videoCapture=null
@@ -194,36 +249,69 @@ fun CineCamScreen() {
     }
 
     fun startOrStop() {
-        if (isRecording) { recording?.stop(); return }
-        if(recordingPhase) return
-        val video = videoCapture ?: return
+        if (isRecording) {
+            recordingPhase=true
+            notification="Finalizando gravação…"
+            recording?.stop()
+            return
+        }
+        if(recordingPhase) { notification="Gravação sendo preparada…"; return }
+        val video = videoCapture
+        if(video == null) {
+            notification="Gravação indisponível. Reabra a câmera."
+            error="Vídeo não preparado: ${captureMode}. Verifique a configuração e permissões."
+            Toast.makeText(context,notification,Toast.LENGTH_LONG).show()
+            return
+        }
         val values = ContentValues().apply {
             put(Video.Media.DISPLAY_NAME, "RBCineCam_${System.currentTimeMillis()}.mp4")
             put(Video.Media.MIME_TYPE, "video/mp4")
             put(Video.Media.RELATIVE_PATH, "Movies/RBCineCam")
         }
-        val options = MediaStoreOutputOptions.Builder(context.contentResolver, Video.Media.EXTERNAL_CONTENT_URI)
-            .setContentValues(values).build()
-        var pending = video.output.prepareRecording(context, options)
-        if (mic && audioGranted) pending = pending.withAudioEnabled()
         try {
+            val options = MediaStoreOutputOptions.Builder(context.contentResolver, Video.Media.EXTERNAL_CONTENT_URI)
+                .setContentValues(values).build()
+            var pending = video.output.prepareRecording(context, options)
+            if (mic && audioGranted) pending = pending.withAudioEnabled()
             recordingPhase = true
+            notification="Preparando gravação…"
             recording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
                 when(event) {
-                    is VideoRecordEvent.Start -> { isRecording=true; error=null }
+                    is VideoRecordEvent.Start -> {
+                        isRecording=true
+                        recordingPhase=false
+                        notification="Gravando"
+                        error=null
+                    }
                     is VideoRecordEvent.Finalize -> {
                         isRecording=false
                         recordingPhase=false
                         recording=null
-                        if(event.hasError()) error="Gravação falhou: ${event.error}"
+                        if(event.hasError()) {
+                            error="Gravação falhou: código ${event.error}, causa ${event.cause?.message}"
+                            notification="Falha ao salvar o vídeo"
+                            Toast.makeText(context,error,Toast.LENGTH_LONG).show()
+                        } else {
+                            notification="Vídeo salvo com sucesso"
+                            Toast.makeText(context,"Vídeo salvo na galeria RB CineCam",Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
-        } catch (ex: Exception) { recordingPhase=false; error="Não foi possível gravar: ${ex.message}" }
+        } catch (ex: Exception) {
+            isRecording=false
+            recordingPhase=false
+            error="Não foi possível gravar: ${ex.message}"
+            notification="Erro ao iniciar gravação"
+            Toast.makeText(context,error,Toast.LENGTH_LONG).show()
+        }
     }
 
     fun photograph() {
-        val capture=imageCapture ?: return
+        val capture=imageCapture ?: run {
+            notification="Foto indisponível. O modo vídeo está priorizado."
+            return
+        }
         val values=ContentValues().apply {
             put(Images.Media.DISPLAY_NAME,"RBCineCam_${System.currentTimeMillis()}.jpg")
             put(Images.Media.MIME_TYPE,"image/jpeg")
@@ -233,8 +321,14 @@ fun CineCamScreen() {
             context.contentResolver, Images.Media.EXTERNAL_CONTENT_URI, values
         ).build()
         capture.takePicture(options, ContextCompat.getMainExecutor(context), object: ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(output: ImageCapture.OutputFileResults) { error=null }
-            override fun onError(exception: ImageCaptureException) { error="Foto falhou: ${exception.message}" }
+            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                error=null; notification="Foto salva na galeria do Android"
+                Toast.makeText(context,"Foto salva",Toast.LENGTH_SHORT).show()
+            }
+            override fun onError(exception: ImageCaptureException) {
+                error="Foto falhou: ${exception.message}"
+                Toast.makeText(context,error,Toast.LENGTH_LONG).show()
+            }
         })
     }
 
@@ -264,7 +358,8 @@ fun CineCamScreen() {
                     Text(if(actualQuality==Quality.UHD) "4K" else if(actualQuality==Quality.FHD) "FHD" else "HD",color=Color.White)
                     Text("FPS automático",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
                     Text(if(mic && audioGranted) "MIC ON" else "MIC OFF",color=Color.LightGray)
-                    Text(if(isRecording) "REC  ${elapsed}s" else "PRONTO",color=if(isRecording) Red else Color.Green)
+                    Text(if(isRecording) "● REC ${elapsed}s" else if(captureMode=="erro") "ERRO" else if(captureMode=="iniciando") "INICIANDO" else "PRONTO",
+                        color=if(isRecording || captureMode=="erro") Red else Color.Green)
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick={settings=true},enabled=!isRecording) { Icon("configuracoes","Configurações") }
                 }
@@ -296,7 +391,7 @@ fun CineCamScreen() {
                         CineButton("trocar_camera","Câmera",enabled=!isRecording && availableFront) {
                             lens=if(lens==CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                         }
-                        Surface(onClick={::startOrStop},enabled=videoCapture!=null && (!recordingPhase || isRecording),shape=RoundedCornerShape(60.dp),
+                        Surface(onClick={::startOrStop},enabled=(!recordingPhase || isRecording),shape=RoundedCornerShape(60.dp),
                             color=if(isRecording) Red else Panel) {
                             Box(Modifier.size(52.dp),contentAlignment=Alignment.Center) {
                                 Icon(if(isRecording) "parar" else "gravar",if(isRecording) "Parar" else "Gravar",Modifier.size(42.dp))
@@ -368,8 +463,19 @@ fun CineCamScreen() {
                             modifier=Modifier.padding(horizontal=8.dp, vertical=12.dp))
                     }
                 }
-                if(error!=null) {
-                    Text(error ?: "",color=Red,style=MaterialTheme.typography.labelSmall)
+                Surface(color=if(error!=null) Red.copy(alpha=.20f) else Ink.copy(alpha=.90f),
+                    modifier=Modifier.fillMaxWidth()) {
+                    Row(horizontalArrangement=Arrangement.SpaceBetween,
+                        verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=2.dp)) {
+                        Text(error ?: notification,
+                            color=if(error!=null) Color(0xFFFFACAC) else Color.LightGray,
+                            style=MaterialTheme.typography.labelSmall,
+                            maxLines=1,overflow=TextOverflow.Ellipsis,
+                            modifier=Modifier.weight(1f))
+                        if(captureMode=="erro") TextButton(onClick={quality=Quality.HD}) {
+                            Text("Tentar HD",style=MaterialTheme.typography.labelSmall)
+                        }
+                    }
                 }
             }
             if(settings) AlertDialog(onDismissRequest={settings=false},
