@@ -11,6 +11,12 @@ import android.os.StatFs
 import android.view.WindowManager
 import android.widget.Toast
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.camera.video.VideoRecordEvent.Status
+import androidx.camera.video.VideoRecordEvent.Start
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -133,6 +139,9 @@ fun CineCamScreen() {
     var gallery by remember { mutableStateOf(false) }
     var toolsOpen by remember { mutableStateOf(false) }
     var recordingPhase by remember { mutableStateOf(false) }
+    var recordingState by remember { mutableStateOf(RecordingUiState.IDLE) }
+    var recordingErrorCode by remember { mutableStateOf<Int?>(null) }
+    var recordTapCount by remember { mutableIntStateOf(0) }
     var captureMode by remember { mutableStateOf("iniciando") }
     var notification by remember { mutableStateOf("Inicializando a câmera…") }
     var sessionEpoch by remember { mutableIntStateOf(0) }
@@ -156,8 +165,26 @@ fun CineCamScreen() {
     var availableFront by remember { mutableStateOf(false) }
 
     val providerFuture = remember { ProcessCameraProvider.getInstance(context) }
-    LaunchedEffect(isRecording) {
-        if (isRecording) { elapsed=0; while(isRecording) { delay(1000); elapsed++ } }
+    LaunchedEffect(recordingState) {
+        if(recordingState == RecordingUiState.RECORDING) {
+            while(recordingState == RecordingUiState.RECORDING) {
+                delay(1000)
+                elapsed++
+            }
+        }
+    }
+    LaunchedEffect(recordingState) {
+        if(recordingState == RecordingUiState.PREPARING) {
+            delay(12000)
+            if(recordingState == RecordingUiState.PREPARING) {
+                notification="Sem retorno da câmera. Encerrando tentativa…"
+                error="Tempo limite da inicialização de vídeo excedido"
+                Log.e("RBCineCam","No Start event received within 12s")
+                recordingState=RecordingUiState.STOPPING
+                recording?.stop()
+                if(recording==null) recordingState=RecordingUiState.ERROR
+            }
+        }
     }
     LaunchedEffect(cameraGranted, lens, quality, previewView) {
         if (!cameraGranted || previewView == null) return@LaunchedEffect
@@ -249,60 +276,94 @@ fun CineCamScreen() {
     }
 
     fun startOrStop() {
-        if (isRecording) {
-            recordingPhase=true
-            notification="Finalizando gravação…"
-            recording?.stop()
+        recordTapCount++
+        Log.i("RBCineCam","REC tapped #$recordTapCount state=$recordingState capture=$captureMode")
+        when(recordingState) {
+            RecordingUiState.RECORDING -> {
+                recordingState=RecordingUiState.STOPPING
+                notification="Finalizando gravação…"
+                Log.i("RBCineCam","REC stop requested")
+                recording?.stop()
+                return
+            }
+            RecordingUiState.PREPARING, RecordingUiState.STOPPING -> {
+                notification="Aguarde a operação atual…"
+                return
+            }
+            else -> Unit
+        }
+        val video=videoCapture
+        if(video==null) {
+            recordingState=RecordingUiState.ERROR
+            error="Gravação indisponível: $captureMode. Reabra o app ou selecione HD."
+            notification="Sessão de gravação não preparada"
+            Log.e("RBCineCam","REC videoCapture null")
             return
         }
-        if(recordingPhase) { notification="Gravação sendo preparada…"; return }
-        val video = videoCapture
-        if(video == null) {
-            notification="Gravação indisponível. Reabra a câmera."
-            error="Vídeo não preparado: ${captureMode}. Verifique a configuração e permissões."
-            Toast.makeText(context,notification,Toast.LENGTH_LONG).show()
-            return
-        }
-        val values = ContentValues().apply {
+        val values=ContentValues().apply {
             put(Video.Media.DISPLAY_NAME, "RBCineCam_${System.currentTimeMillis()}.mp4")
-            put(Video.Media.MIME_TYPE, "video/mp4")
-            put(Video.Media.RELATIVE_PATH, "Movies/RBCineCam")
+            put(Video.Media.MIME_TYPE,"video/mp4")
+            put(Video.Media.RELATIVE_PATH,"Movies/RBCineCam")
         }
+        recordingState=RecordingUiState.PREPARING
+        recordingPhase=true
+        elapsed=0
+        error=null
+        recordingErrorCode=null
+        notification="Preparando gravação…"
+        Log.i("RBCineCam","Preparing recording, mic=${mic && audioGranted} quality=$actualQuality")
         try {
-            val options = MediaStoreOutputOptions.Builder(context.contentResolver, Video.Media.EXTERNAL_CONTENT_URI)
-                .setContentValues(values).build()
-            var pending = video.output.prepareRecording(context, options)
-            if (mic && audioGranted) pending = pending.withAudioEnabled()
-            recordingPhase = true
-            notification="Preparando gravação…"
-            recording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
+            val options=MediaStoreOutputOptions.Builder(
+                context.contentResolver,Video.Media.EXTERNAL_CONTENT_URI
+            ).setContentValues(values).build()
+            var pending=video.output.prepareRecording(context,options)
+            if(mic && audioGranted) pending=pending.withAudioEnabled()
+            recording=pending.start(ContextCompat.getMainExecutor(context)) { event ->
+                Log.i("RBCineCam","Recording event ${event.javaClass.simpleName}")
                 when(event) {
                     is VideoRecordEvent.Start -> {
-                        isRecording=true
+                        recordingState=RecordingUiState.RECORDING
                         recordingPhase=false
-                        notification="Gravando"
+                        isRecording=true
+                        notification="Gravando • toque no botão para parar"
                         error=null
                     }
+                    is VideoRecordEvent.Status -> {
+                        // The callback confirms that a recorder is delivering updates.
+                        if(recordingState==RecordingUiState.PREPARING) {
+                            recordingState=RecordingUiState.RECORDING
+                            recordingPhase=false
+                            isRecording=true
+                        }
+                    }
                     is VideoRecordEvent.Finalize -> {
-                        isRecording=false
-                        recordingPhase=false
                         recording=null
+                        recordingPhase=false
+                        isRecording=false
                         if(event.hasError()) {
-                            error="Gravação falhou: código ${event.error}, causa ${event.cause?.message}"
-                            notification="Falha ao salvar o vídeo"
+                            recordingState=RecordingUiState.ERROR
+                            recordingErrorCode=event.error
+                            error="Falha REC (${event.error}): ${event.cause?.message ?: "sem detalhes do Android"}"
+                            notification="Falha na gravação"
+                            Log.e("RBCineCam",error,event.cause)
                             Toast.makeText(context,error,Toast.LENGTH_LONG).show()
                         } else {
+                            recordingState=RecordingUiState.IDLE
                             notification="Vídeo salvo com sucesso"
-                            Toast.makeText(context,"Vídeo salvo na galeria RB CineCam",Toast.LENGTH_SHORT).show()
+                            error=null
+                            Toast.makeText(context,"Vídeo salvo em Movies/RBCineCam",Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
             }
-        } catch (ex: Exception) {
+        } catch(ex:Exception) {
+            recording=null
             isRecording=false
             recordingPhase=false
-            error="Não foi possível gravar: ${ex.message}"
-            notification="Erro ao iniciar gravação"
+            recordingState=RecordingUiState.ERROR
+            error="Falha ao iniciar gravação: ${ex.message ?: ex.javaClass.simpleName}"
+            notification="Falha ao iniciar vídeo"
+            Log.e("RBCineCam","REC start exception",ex)
             Toast.makeText(context,error,Toast.LENGTH_LONG).show()
         }
     }
@@ -358,8 +419,17 @@ fun CineCamScreen() {
                     Text(if(actualQuality==Quality.UHD) "4K" else if(actualQuality==Quality.FHD) "FHD" else "HD",color=Color.White)
                     Text("FPS automático",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
                     Text(if(mic && audioGranted) "MIC ON" else "MIC OFF",color=Color.LightGray)
-                    Text(if(isRecording) "● REC ${elapsed}s" else if(captureMode=="erro") "ERRO" else if(captureMode=="iniciando") "INICIANDO" else "PRONTO",
-                        color=if(isRecording || captureMode=="erro") Red else Color.Green)
+                    Text(when(recordingState) {
+                        RecordingUiState.PREPARING -> "● PREPARANDO"
+                        RecordingUiState.RECORDING -> "● REC ${String.format(Locale.US,"%02d:%02d",elapsed/60,elapsed%60)}"
+                        RecordingUiState.STOPPING -> "● SALVANDO"
+                        RecordingUiState.ERROR -> "● ERRO REC"
+                        else -> if(captureMode=="erro") "ERRO CÂMERA" else if(captureMode=="iniciando") "INICIANDO" else "PRONTO"
+                    }, color=when(recordingState) {
+                        RecordingUiState.RECORDING,RecordingUiState.ERROR -> Red
+                        RecordingUiState.PREPARING,RecordingUiState.STOPPING -> Gold
+                        else -> if(captureMode=="erro") Red else Color.Green
+                    },fontWeight=FontWeight.Bold)
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick={settings=true},enabled=!isRecording) { Icon("configuracoes","Configurações") }
                 }
@@ -391,12 +461,36 @@ fun CineCamScreen() {
                         CineButton("trocar_camera","Câmera",enabled=!isRecording && availableFront) {
                             lens=if(lens==CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                         }
-                        Surface(onClick={::startOrStop},enabled=(!recordingPhase || isRecording),shape=RoundedCornerShape(60.dp),
-                            color=if(isRecording) Red else Panel) {
-                            Box(Modifier.size(52.dp),contentAlignment=Alignment.Center) {
-                                Icon(if(isRecording) "parar" else "gravar",if(isRecording) "Parar" else "Gravar",Modifier.size(42.dp))
+                        Surface(
+                            onClick={::startOrStop},
+                            enabled=true,
+                            shape=CircleShape,
+                            border=BorderStroke(2.dp,when(recordingState) {
+                                RecordingUiState.RECORDING -> Color.White
+                                RecordingUiState.PREPARING,RecordingUiState.STOPPING -> Gold
+                                RecordingUiState.ERROR -> Red
+                                else -> Color.White
+                            }),
+                            color=when(recordingState) {
+                                RecordingUiState.RECORDING -> Red
+                                RecordingUiState.PREPARING,RecordingUiState.STOPPING -> Gold.copy(alpha=.35f)
+                                RecordingUiState.ERROR -> Red.copy(alpha=.25f)
+                                else -> Panel
+                            }
+                        ) {
+                            Box(Modifier.size(60.dp),contentAlignment=Alignment.Center) {
+                                Icon(if(recordingState==RecordingUiState.RECORDING) "parar" else "gravar",
+                                    "Gravar ou parar vídeo",Modifier.size(46.dp))
                             }
                         }
+                        Text(when(recordingState) {
+                            RecordingUiState.RECORDING -> "REC"
+                            RecordingUiState.PREPARING -> "AGUARDE"
+                            RecordingUiState.STOPPING -> "SALVANDO"
+                            RecordingUiState.ERROR -> "ERRO"
+                            else -> "GRAVAR"
+                        },color=if(recordingState==RecordingUiState.ERROR) Red else Color.White,
+                            fontSize=9.sp,fontWeight=FontWeight.Bold,maxLines=1)
                         CineButton("galeria","Galeria",enabled=!isRecording) { gallery=true }
                     }
                 }
@@ -472,7 +566,7 @@ fun CineCamScreen() {
                             style=MaterialTheme.typography.labelSmall,
                             maxLines=1,overflow=TextOverflow.Ellipsis,
                             modifier=Modifier.weight(1f))
-                        if(captureMode=="erro") TextButton(onClick={quality=Quality.HD}) {
+                        if(captureMode=="erro" || recordingState==RecordingUiState.ERROR) TextButton(onClick={quality=Quality.HD}) {
                             Text("Tentar HD",style=MaterialTheme.typography.labelSmall)
                         }
                     }
