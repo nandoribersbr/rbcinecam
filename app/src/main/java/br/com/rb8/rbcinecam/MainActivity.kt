@@ -55,6 +55,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -80,7 +82,20 @@ private val Blue = Color(0xFF3B9DFF)
 private val Red = Color(0xFFF52C3E)
 private val Gold = Color(0xFFFFCF47)
 
+private object TouchProbe {
+    var count by mutableIntStateOf(0)
+    var last by mutableStateOf("Aguardando toque")
+}
+
 class MainActivity: ComponentActivity() {
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            TouchProbe.count++
+            TouchProbe.last="Toque físico #${TouchProbe.count} (${ev.x.toInt()}, ${ev.y.toInt()})"
+            Log.d("RBCineCam","DISPATCH: ${TouchProbe.last}")
+        }
+        return super.dispatchTouchEvent(ev)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -110,8 +125,8 @@ private fun Icon(name: String, label: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CineButton(icon: String, label: String, enabled: Boolean = true, highlighted: Boolean = false, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(45.dp)) {
-        Surface(onClick=onClick, enabled=enabled, shape=RoundedCornerShape(9.dp),
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(45.dp).zIndex(5f)) {
+        Surface(onClick={ TouchProbe.last="Botão: $label"; Log.i("RBCineCam","BUTTON $label"); onClick() }, enabled=enabled, shape=RoundedCornerShape(9.dp),
             color=if(highlighted) Blue.copy(alpha=.22f) else Panel) {
             Box(Modifier.size(34.dp), contentAlignment=Alignment.Center) { Icon(icon, label) }
         }
@@ -413,7 +428,7 @@ fun CineCamScreen() {
                 InternalGallery(onClose={gallery=false})
             } else Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(4.dp)) {
                 Row(verticalAlignment=Alignment.CenterVertically,
-                    horizontalArrangement=Arrangement.spacedBy(9.dp),modifier=Modifier.fillMaxWidth().height(32.dp)) {
+                    horizontalArrangement=Arrangement.spacedBy(9.dp),modifier=Modifier.fillMaxWidth().height(32.dp).zIndex(4f)) {
                     Text("RB",color=Color.White,fontWeight=FontWeight.Black)
                     Text("CineCam",color=Red,fontWeight=FontWeight.Bold)
                     Text(if(actualQuality==Quality.UHD) "4K" else if(actualQuality==Quality.FHD) "FHD" else "HD",color=Color.White)
@@ -433,13 +448,13 @@ fun CineCamScreen() {
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick={settings=true},enabled=!isRecording) { Icon("configuracoes","Configurações") }
                 }
-                Row(modifier=Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black,RoundedCornerShape(6.dp))) {
+                Row(modifier=Modifier.weight(1f).fillMaxWidth().zIndex(3f),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black,RoundedCornerShape(6.dp)).zIndex(0f)) {
                         AndroidView(factory={ ctx -> PreviewView(ctx).apply {
                             implementationMode=PreviewView.ImplementationMode.COMPATIBLE
                             scaleType=PreviewView.ScaleType.FILL_CENTER
                             previewView=this
-                        } }, modifier=Modifier.fillMaxSize())
+                        } }, modifier=Modifier.fillMaxSize().zIndex(0f))
                         if(hist || zebra || peaking) previewView?.let { MonitorOverlay(it, hist, zebra, peaking) }
                         if(grid) {
                             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
@@ -455,14 +470,14 @@ fun CineCamScreen() {
                             }
                         }
                     }
-                    Column(Modifier.width(58.dp),horizontalAlignment=Alignment.CenterHorizontally,
+                    Column(Modifier.width(66.dp).zIndex(15f),horizontalAlignment=Alignment.CenterHorizontally,
                         verticalArrangement=Arrangement.SpaceEvenly) {
                         CineButton("fotografar","Foto",enabled=!isRecording && imageCapture!=null){photograph()}
                         CineButton("trocar_camera","Câmera",enabled=!isRecording && availableFront) {
                             lens=if(lens==CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                         }
                         Surface(
-                            onClick={::startOrStop},
+                            onClick={ TouchProbe.last="REC clicado #${recordTapCount+1}"; Log.i("RBCineCam","RECORD BUTTON CLICK"); startOrStop() },
                             enabled=true,
                             shape=CircleShape,
                             border=BorderStroke(2.dp,when(recordingState) {
@@ -478,7 +493,7 @@ fun CineCamScreen() {
                                 else -> Panel
                             }
                         ) {
-                            Box(Modifier.size(60.dp),contentAlignment=Alignment.Center) {
+                            Box(Modifier.size(64.dp),contentAlignment=Alignment.Center) {
                                 Icon(if(recordingState==RecordingUiState.RECORDING) "parar" else "gravar",
                                     "Gravar ou parar vídeo",Modifier.size(46.dp))
                             }
@@ -494,7 +509,7 @@ fun CineCamScreen() {
                         CineButton("galeria","Galeria",enabled=!isRecording) { gallery=true }
                     }
                 }
-                Row(Modifier.fillMaxWidth().height(if(toolsOpen) 62.dp else 43.dp),
+                Row(Modifier.fillMaxWidth().height(if(toolsOpen) 62.dp else 43.dp).zIndex(15f),
                     horizontalArrangement=Arrangement.SpaceBetween,
                     verticalAlignment=Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -550,7 +565,7 @@ fun CineCamScreen() {
                         }
                     }
                     Spacer(Modifier.width(6.dp))
-                    Surface(onClick={toolsOpen=!toolsOpen},shape=RoundedCornerShape(10.dp),
+                    Surface(onClick={ TouchProbe.last="Ferramentas clicado"; toolsOpen=!toolsOpen },shape=RoundedCornerShape(10.dp),
                         color=if(toolsOpen) Blue.copy(alpha=.3f) else Panel) {
                         Text(if(toolsOpen) "Fechar" else "Ferramentas",color=Color.White,
                             style=MaterialTheme.typography.labelSmall,
@@ -561,7 +576,7 @@ fun CineCamScreen() {
                     modifier=Modifier.fillMaxWidth()) {
                     Row(horizontalArrangement=Arrangement.SpaceBetween,
                         verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=2.dp)) {
-                        Text(error ?: notification,
+                        Text("TOQUES ${TouchProbe.count} • ${TouchProbe.last} • ${error ?: notification}",
                             color=if(error!=null) Color(0xFFFFACAC) else Color.LightGray,
                             style=MaterialTheme.typography.labelSmall,
                             maxLines=1,overflow=TextOverflow.Ellipsis,
