@@ -18,6 +18,12 @@ class RecordingUiStateTest {
         assertEquals(RecordingUiState.PREPARING,
             transitionRecordingState(RecordingUiState.PREPARING,"TAP"))
     }
+    @Test fun pauseResumeAndStop() {
+        val paused=transitionRecordingState(RecordingUiState.RECORDING,"PAUSE")
+        assertEquals(RecordingUiState.PAUSED,paused)
+        assertEquals(RecordingUiState.RECORDING,transitionRecordingState(paused,"RESUME"))
+        assertEquals(RecordingUiState.STOPPING,transitionRecordingState(paused,"STOP"))
+    }
     @Test fun failureAllowsRetry() {
         assertEquals(RecordingUiState.PREPARING,
             transitionRecordingState(RecordingUiState.ERROR,"TAP"))

@@ -2,17 +2,19 @@ package br.com.rb8.rbcinecam
 
 /** Recording UI mirrors CameraX events. PREPARING is shown immediately on touch. */
 enum class RecordingUiState {
-    IDLE, PREPARING, RECORDING, STOPPING, ERROR
+    IDLE, PREPARING, RECORDING, PAUSED, STOPPING, ERROR
 }
 
 fun transitionRecordingState(current: RecordingUiState, action: String): RecordingUiState = when(action) {
     "TAP" -> when(current) {
         RecordingUiState.IDLE, RecordingUiState.ERROR -> RecordingUiState.PREPARING
-        RecordingUiState.RECORDING -> RecordingUiState.STOPPING
+        RecordingUiState.RECORDING, RecordingUiState.PAUSED -> RecordingUiState.STOPPING
         else -> current
     }
     "START" -> if(current == RecordingUiState.PREPARING) RecordingUiState.RECORDING else current
-    "STOP" -> if(current == RecordingUiState.RECORDING) RecordingUiState.STOPPING else current
+    "PAUSE" -> if(current == RecordingUiState.RECORDING) RecordingUiState.PAUSED else current
+    "RESUME" -> if(current == RecordingUiState.PAUSED) RecordingUiState.RECORDING else current
+    "STOP" -> if(current == RecordingUiState.RECORDING || current == RecordingUiState.PAUSED) RecordingUiState.STOPPING else current
     "FINALIZED" -> RecordingUiState.IDLE
     "FAILED" -> RecordingUiState.ERROR
     else -> current
