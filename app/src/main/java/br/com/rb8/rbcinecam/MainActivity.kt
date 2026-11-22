@@ -10,6 +10,8 @@ import android.os.Environment
 import android.os.StatFs
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
+import android.util.Range
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.CaptureRequestOptions
@@ -186,6 +188,15 @@ fun CineCamScreen() {
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var focusStatus by remember { mutableStateOf("AF auto") }
     var exposureStep by remember { mutableFloatStateOf(0f) }
+    var manualSensorSupported by remember { mutableStateOf(false) }
+    var manualSensorOn by remember { mutableStateOf(false) }
+    var isoRange by remember { mutableStateOf<Range<Int>?>(null) }
+    var shutterRange by remember { mutableStateOf<Range<Long>?>(null) }
+    var isoValue by remember { mutableIntStateOf(100) }
+    var shutterNs by remember { mutableLongStateOf(10000000L) }
+    var awbModes by remember { mutableStateOf(listOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)) }
+    var awbValue by remember { mutableIntStateOf(CaptureRequest.CONTROL_AWB_MODE_AUTO) }
+    var manualPanel by remember { mutableStateOf(false) }
     var actualQuality by remember { mutableStateOf(Quality.FHD) }
     var quality by remember { mutableStateOf(Quality.FHD) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -297,6 +308,19 @@ fun CineCamScreen() {
             }
             val bound=workingCamera
             aeLocked=false
+            manualSensorOn=false
+            manualPanel=false
+            val characteristics=Camera2CameraInfo.from(bound.cameraInfo)
+            val capabilities=characteristics.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: intArrayOf()
+            isoRange=characteristics.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+            shutterRange=characteristics.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+            manualSensorSupported=capabilities.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) &&
+                isoRange!=null && shutterRange!=null
+            isoValue=isoRange?.let { 100.coerceIn(it.lower,it.upper) } ?: 100
+            shutterNs=shutterRange?.let { 10000000L.coerceIn(it.lower,it.upper) } ?: 10000000L
+            awbModes=characteristics.getCameraCharacteristic(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)
+                ?.toList() ?: listOf(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+            awbValue=CaptureRequest.CONTROL_AWB_MODE_AUTO
             focusLocked=false
             focusPoint=null
             focusStatus="AF auto"
@@ -446,30 +470,85 @@ fun CineCamScreen() {
         }
     }
 
-    fun setAeLock(locked:Boolean) {
-        val current=camera ?: run { notification="Câmera indisponível";return }
-        if(!aeLockSupported) {
-            notification="Bloqueio AE indisponível nesta câmera"
+    fun applyManualControls(targetManual:Boolean, targetIso:Int, targetShutter:Long, targetAwb:Int, targetAeLock:Boolean) {
+        val current=camera ?: run { notification="Câmera indisponível"; return }
+        if(recordingState!=RecordingUiState.IDLE) {
+            notification="Finalize a gravação para alterar controles manuais"
             return
         }
+        if(targetManual && !manualSensorSupported) {
+            notification="ISO e obturador manuais não suportados nesta lente"
+            return
+        }
+        if(!awbModes.contains(targetAwb)) {
+            notification="Preset WB não suportado nesta lente"
+            return
+        }
+        val newIso=isoRange?.let { targetIso.coerceIn(it.lower,it.upper) } ?: targetIso
+        val newShutter=shutterRange?.let { targetShutter.coerceIn(it.lower,it.upper) } ?: targetShutter
         try {
-            val options=CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK,locked).build()
-            val future=Camera2CameraControl.from(current.cameraControl).setCaptureRequestOptions(options)
-            notification=if(locked) "Aplicando bloqueio AE…" else "Desbloqueando exposição…"
+            val builder=CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE,targetAwb)
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE,
+                    if(targetManual) CaptureRequest.CONTROL_AE_MODE_OFF else CaptureRequest.CONTROL_AE_MODE_ON)
+            if(targetManual) {
+                builder.setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY,newIso)
+                builder.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME,newShutter)
+            } else if(aeLockSupported) {
+                builder.setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK,targetAeLock)
+            }
+            notification="Aplicando controles de câmera…"
+            // Replaces previous Camera2 options, preventing stale ISO and shutter in auto mode.
+            val future=Camera2CameraControl.from(current.cameraControl)
+                .setCaptureRequestOptions(builder.build())
             future.addListener({
                 try {
                     future.get()
-                    aeLocked=locked
-                    notification=if(locked) "Exposição bloqueada" else "Exposição automática"
+                    manualSensorOn=targetManual
+                    isoValue=newIso
+                    shutterNs=newShutter
+                    awbValue=targetAwb
+                    aeLocked=if(targetManual) false else targetAeLock
+                    notification=if(targetManual) "Exposição manual aplicada" else "Exposição automática aplicada"
+                    error=null
                 } catch(ex:Exception) {
-                    error="Falha no bloqueio de exposição: ${ex.message}"
-                    Log.w("RBCineCam","AE lock failure",ex)
+                    error="Ajustes não aplicados: ${ex.message}"
+                    Log.e("RBCineCam","Manual camera options failed",ex)
                 }
             },ContextCompat.getMainExecutor(context))
         } catch(ex:Exception) {
-            error="Bloqueio AE não aplicado: ${ex.message}"
+            error="Falha ao solicitar controles manuais: ${ex.message}"
+            Log.e("RBCineCam","Manual controls error",ex)
         }
+    }
+
+    fun setAeLock(locked:Boolean) {
+        if(!aeLockSupported) {
+            notification="Bloqueio AE indisponível"
+            return
+        }
+        if(manualSensorOn) {
+            notification="Desative exposição manual para usar o bloqueio AE"
+            return
+        }
+        applyManualControls(false,isoValue,shutterNs,awbValue,locked)
+    }
+
+    fun cycleAwb() {
+        if(awbModes.isEmpty()) return
+        val supportedModes=listOf(
+            CaptureRequest.CONTROL_AWB_MODE_AUTO,
+            CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT,
+            CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
+            CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT,
+            CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT
+        ).filter { awbModes.contains(it) }
+        if(supportedModes.isEmpty()) {
+            notification="Sem presets WB suportados"
+            return
+        }
+        val next=supportedModes[(supportedModes.indexOf(awbValue)+1).mod(supportedModes.size)]
+        applyManualControls(manualSensorOn,isoValue,shutterNs,next,aeLocked)
     }
 
     fun setAfLock(locked:Boolean) {
@@ -700,6 +779,9 @@ fun CineCamScreen() {
                             }
                             Text("EV "+String.format(Locale.US,"%+.1f",exposureIndex*exposureStep),
                                 color=Color.White,style=MaterialTheme.typography.labelSmall)
+                            CineButton("iso",if(manualPanel) "Manuais -" else "Manuais +",
+                                enabled=recordingState==RecordingUiState.IDLE,
+                                highlighted=manualPanel) { manualPanel=!manualPanel }
                             CineButton("bloquear_foco",if(focusLocked) "AF fixo" else "AF auto",
                                 enabled=camera!=null,highlighted=focusLocked) {setAfLock(!focusLocked)}
                             CineButton("bloquear_foco",if(aeLocked) "AE fixo" else "AE auto",
@@ -712,6 +794,44 @@ fun CineCamScreen() {
                                     exposureIndex=(exposureIndex+1).coerceAtMost(range.upper)
                                     c.cameraControl.setExposureCompensationIndex(exposureIndex)
                                 }
+                            }
+                            if(manualPanel) {
+                                CineButton("iso",if(manualSensorOn) "ISO M" else "ISO A",
+                                    enabled=manualSensorSupported && recordingState==RecordingUiState.IDLE,
+                                    highlighted=manualSensorOn) {
+                                    applyManualControls(!manualSensorOn,isoValue,shutterNs,awbValue,false)
+                                }
+                                CineButton("zoom_menos","ISO -",enabled=manualSensorSupported &&
+                                    manualSensorOn && recordingState==RecordingUiState.IDLE) {
+                                    applyManualControls(true,(isoValue-100).coerceAtLeast(isoRange?.lower ?: 100),
+                                        shutterNs,awbValue,false)
+                                }
+                                Text("$isoValue",color=Color.White)
+                                CineButton("zoom_mais","ISO +",enabled=manualSensorSupported &&
+                                    manualSensorOn && recordingState==RecordingUiState.IDLE) {
+                                    applyManualControls(true,(isoValue+100).coerceAtMost(isoRange?.upper ?: 100),
+                                        shutterNs,awbValue,false)
+                                }
+                                CineButton("obturador","1/t -",enabled=manualSensorSupported &&
+                                    manualSensorOn && recordingState==RecordingUiState.IDLE) {
+                                    applyManualControls(true,isoValue,(shutterNs*2).coerceAtMost(shutterRange?.upper ?: shutterNs),
+                                        awbValue,false)
+                                }
+                                Text("1/"+(1000000000L/shutterNs.coerceAtLeast(1L)),
+                                    color=Color.White,style=MaterialTheme.typography.labelSmall)
+                                CineButton("obturador","1/t +",enabled=manualSensorSupported &&
+                                    manualSensorOn && recordingState==RecordingUiState.IDLE) {
+                                    applyManualControls(true,isoValue,(shutterNs/2).coerceAtLeast(shutterRange?.lower ?: 1L),
+                                        awbValue,false)
+                                }
+                                CineButton("balanco_branco","WB",enabled=recordingState==RecordingUiState.IDLE) { cycleAwb() }
+                                Text(when(awbValue) {
+                                    CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT -> "Sol"
+                                    CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT -> "Nublado"
+                                    CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT -> "Tungst."
+                                    CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT -> "Fluor."
+                                    else -> "WB auto"
+                                },color=Color.White,style=MaterialTheme.typography.labelSmall)
                             }
                             CineButton("histograma","Hist.",highlighted=hist) { hist=!hist }
                             CineButton("zebra","Zebra",highlighted=zebra) { zebra=!zebra }
@@ -760,13 +880,17 @@ fun CineCamScreen() {
                         }
                         Text("Toque na imagem para focalizar. Use AF fixo para manter foco e AE fixo para bloquear a exposição quando o hardware permitir.")
                         Text("Estado do foco: "+focusStatus)
+                        Text(if(manualSensorSupported) "Sensor manual: ISO ${isoRange?.lower} a ${isoRange?.upper}" else "Sensor manual indisponível nesta lente")
+                        Text("Modo de exposição: "+if(manualSensorOn) "manual" else "automático")
+                        Text("ISO: $isoValue • obturador: ${shutterNs/1000000.0} ms")
+                        Text("WB: "+awbValue+" (preset do Android)")
                         Text("Compensação de exposição: "+String.format(Locale.US,"%+.2f EV",exposureIndex*exposureStep))
                         Text(if(aeLockSupported) "Bloqueio AE disponível" else "Bloqueio AE não informado pelo dispositivo")
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             Text("Diagnóstico de toques")
                             Switch(checked=diagnosticsOpen,onCheckedChange={diagnosticsOpen=it})
                         }
-                        Text("ISO, obturador e balanço de branco manuais, FPS fixo e LOG exigem implementação Camera2 e testes de hardware. Histograma, zebra e peaking são estimativas sobre a pré-visualização, não instrumentos calibrados.")
+                        Text("ISO/obturador exigem suporte MANUAL_SENSOR. WB usa apenas presets reportados. FPS fixo, LOG e ajuste Kelvin ainda não implementados. Os monitores são aproximados.")
                     }
                 },
                 confirmButton={TextButton(onClick={settings=false}){Text("Fechar")}})

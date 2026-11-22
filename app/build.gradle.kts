@@ -1,6 +1,6 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose") }
 android { namespace = "br.com.rb8.rbcinecam"; compileSdk = 35
- defaultConfig { applicationId = "br.com.rb8.rbcinecam"; minSdk = 29; targetSdk = 35; versionCode = 8; versionName = "0.4.1-alpha" }
+ defaultConfig { applicationId = "br.com.rb8.rbcinecam"; minSdk = 29; targetSdk = 35; versionCode = 9; versionName = "0.4.2-alpha" }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget = "17" }
  buildFeatures { compose = true }
