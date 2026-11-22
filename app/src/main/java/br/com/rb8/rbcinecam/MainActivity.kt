@@ -8,6 +8,15 @@ import android.os.Bundle
 import android.os.BatteryManager
 import android.os.Environment
 import android.os.StatFs
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CameraCharacteristics
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.Stroke
 import android.view.WindowManager
 import android.widget.Toast
 import android.util.Log
@@ -137,6 +146,7 @@ private fun CineButton(icon: String, label: String, enabled: Boolean = true, hig
     }
 }
 
+@OptIn(ExperimentalCamera2Interop::class)
 @Composable
 fun CineCamScreen() {
     val context = LocalContext.current
@@ -170,6 +180,12 @@ fun CineCamScreen() {
     var zebra by remember { mutableStateOf(false) }
     var peaking by remember { mutableStateOf(false) }
     var exposureIndex by remember { mutableIntStateOf(0) }
+    var aeLocked by remember { mutableStateOf(false) }
+    var aeLockSupported by remember { mutableStateOf(false) }
+    var focusLocked by remember { mutableStateOf(false) }
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    var focusStatus by remember { mutableStateOf("AF auto") }
+    var exposureStep by remember { mutableFloatStateOf(0f) }
     var actualQuality by remember { mutableStateOf(Quality.FHD) }
     var quality by remember { mutableStateOf(Quality.FHD) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -280,15 +296,40 @@ fun CineCamScreen() {
                 throw IllegalStateException(diagnostics.joinToString("; "))
             }
             val bound=workingCamera
+            aeLocked=false
+            focusLocked=false
+            focusPoint=null
+            focusStatus="AF auto"
+            aeLockSupported=try {
+                Camera2CameraInfo.from(bound.cameraInfo)
+                    .getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE)==true
+            } catch(ex:Exception) { false }
             camera=bound
             imageCapture=workingPhoto
             videoCapture=workingVideo
             zoom=1f
             exposureIndex=0
+            exposureStep=bound.cameraInfo.exposureState.exposureCompensationStep.toFloat()
             view.setOnTouchListener { _, event ->
                 if(event.action == MotionEvent.ACTION_UP) {
                     val point=view.meteringPointFactory.createPoint(event.x,event.y)
-                    bound.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
+                    val action=FocusMeteringAction.Builder(point).apply {
+                        if(focusLocked) disableAutoCancel()
+                    }.build()
+                    val future=bound.cameraControl.startFocusAndMetering(action)
+                    focusPoint=Offset(event.x,event.y)
+                    focusStatus=if(focusLocked) "AF fixado" else "Focalizando…"
+                    future.addListener({
+                        try {
+                            val result=future.get()
+                            focusStatus=if(result.isFocusSuccessful) {
+                                if(focusLocked) "AF fixado" else "AF confirmado"
+                            } else "Foco não confirmado"
+                        } catch(ex:Exception) {
+                            focusStatus="Falha de foco"
+                            Log.w("RBCineCam","Focus failure",ex)
+                        }
+                    },ContextCompat.getMainExecutor(context))
                     true
                 } else true
             }
@@ -405,6 +446,57 @@ fun CineCamScreen() {
         }
     }
 
+    fun setAeLock(locked:Boolean) {
+        val current=camera ?: run { notification="Câmera indisponível";return }
+        if(!aeLockSupported) {
+            notification="Bloqueio AE indisponível nesta câmera"
+            return
+        }
+        try {
+            val options=CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK,locked).build()
+            val future=Camera2CameraControl.from(current.cameraControl).setCaptureRequestOptions(options)
+            notification=if(locked) "Aplicando bloqueio AE…" else "Desbloqueando exposição…"
+            future.addListener({
+                try {
+                    future.get()
+                    aeLocked=locked
+                    notification=if(locked) "Exposição bloqueada" else "Exposição automática"
+                } catch(ex:Exception) {
+                    error="Falha no bloqueio de exposição: ${ex.message}"
+                    Log.w("RBCineCam","AE lock failure",ex)
+                }
+            },ContextCompat.getMainExecutor(context))
+        } catch(ex:Exception) {
+            error="Bloqueio AE não aplicado: ${ex.message}"
+        }
+    }
+
+    fun setAfLock(locked:Boolean) {
+        val c=camera ?: return
+        if(locked) {
+            val v=previewView ?: return
+            val point=v.meteringPointFactory.createPoint(v.width/2f,v.height/2f)
+            val future=c.cameraControl.startFocusAndMetering(
+                FocusMeteringAction.Builder(point).disableAutoCancel().build()
+            )
+            focusStatus="Fixando foco…"
+            future.addListener({
+                try {
+                    focusLocked=future.get().isFocusSuccessful
+                    focusStatus=if(focusLocked) "AF fixado" else "AF não confirmado"
+                } catch(ex:Exception) {
+                    focusLocked=false
+                    focusStatus="Falha ao fixar AF"
+                }
+            },ContextCompat.getMainExecutor(context))
+        } else {
+            c.cameraControl.cancelFocusAndMetering()
+            focusLocked=false
+            focusStatus="AF auto"
+        }
+    }
+
     fun pauseOrResume() {
         val active=recording ?: return
         try {
@@ -498,6 +590,14 @@ fun CineCamScreen() {
                             previewView=this
                         } }, modifier=Modifier.fillMaxSize().zIndex(0f))
                         if(hist || zebra || peaking) previewView?.let { MonitorOverlay(it, hist, zebra, peaking) }
+                        if(focusPoint!=null) {
+                            Canvas(Modifier.fillMaxSize()) {
+                                val p=focusPoint!!
+                                drawCircle(if(focusLocked) Gold else Blue,25f,p,style=Stroke(width=2.5f))
+                                drawLine(Gold,Offset(p.x-9f,p.y),Offset(p.x+9f,p.y),strokeWidth=1.5f)
+                                drawLine(Gold,Offset(p.x,p.y-9f),Offset(p.x,p.y+9f),strokeWidth=1.5f)
+                            }
+                        }
                         if(grid) {
                             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                                 val w=size.width; val h=size.height
@@ -598,7 +698,12 @@ fun CineCamScreen() {
                                     c.cameraControl.setExposureCompensationIndex(exposureIndex)
                                 }
                             }
-                            Text("EV "+exposureIndex,color=Color.White,style=MaterialTheme.typography.labelSmall)
+                            Text("EV "+String.format(Locale.US,"%+.1f",exposureIndex*exposureStep),
+                                color=Color.White,style=MaterialTheme.typography.labelSmall)
+                            CineButton("bloquear_foco",if(focusLocked) "AF fixo" else "AF auto",
+                                enabled=camera!=null,highlighted=focusLocked) {setAfLock(!focusLocked)}
+                            CineButton("bloquear_foco",if(aeLocked) "AE fixo" else "AE auto",
+                                enabled=aeLockSupported,highlighted=aeLocked) {setAeLock(!aeLocked)}
                             CineButton("compensacao_ev","EV +",
                                 enabled=camera?.cameraInfo?.exposureState?.isExposureCompensationSupported==true) {
                                 val c=camera
@@ -653,7 +758,10 @@ fun CineCamScreen() {
                                 }
                             }
                         }
-                        Text("Toque na imagem para ajustar foco e exposição automáticos.")
+                        Text("Toque na imagem para focalizar. Use AF fixo para manter foco e AE fixo para bloquear a exposição quando o hardware permitir.")
+                        Text("Estado do foco: "+focusStatus)
+                        Text("Compensação de exposição: "+String.format(Locale.US,"%+.2f EV",exposureIndex*exposureStep))
+                        Text(if(aeLockSupported) "Bloqueio AE disponível" else "Bloqueio AE não informado pelo dispositivo")
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             Text("Diagnóstico de toques")
                             Switch(checked=diagnosticsOpen,onCheckedChange={diagnosticsOpen=it})
