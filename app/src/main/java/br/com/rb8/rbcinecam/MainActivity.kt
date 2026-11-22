@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.camera.video.VideoRecordEvent.Status
 import androidx.camera.video.VideoRecordEvent.Start
+import androidx.camera.video.VideoRecordEvent.Pause
+import androidx.camera.video.VideoRecordEvent.Resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -155,6 +157,9 @@ fun CineCamScreen() {
     var toolsOpen by remember { mutableStateOf(false) }
     var recordingPhase by remember { mutableStateOf(false) }
     var recordingState by remember { mutableStateOf(RecordingUiState.IDLE) }
+    var diagnosticsOpen by remember { mutableStateOf(false) }
+    var lastVideoBytes by remember { mutableLongStateOf(0L) }
+    var freeSpaceMb by remember { mutableLongStateOf(0L) }
     var recordingErrorCode by remember { mutableStateOf<Int?>(null) }
     var recordTapCount by remember { mutableIntStateOf(0) }
     var captureMode by remember { mutableStateOf("iniciando") }
@@ -180,6 +185,14 @@ fun CineCamScreen() {
     var availableFront by remember { mutableStateOf(false) }
 
     val providerFuture = remember { ProcessCameraProvider.getInstance(context) }
+    LaunchedEffect(Unit) {
+        while(true) {
+            freeSpaceMb = try {
+                StatFs(Environment.getExternalStorageDirectory().path).availableBytes / (1024*1024)
+            } catch(_:Exception) { 0L }
+            delay(3000)
+        }
+    }
     LaunchedEffect(recordingState) {
         if(recordingState == RecordingUiState.RECORDING) {
             while(recordingState == RecordingUiState.RECORDING) {
@@ -294,7 +307,7 @@ fun CineCamScreen() {
         recordTapCount++
         Log.i("RBCineCam","REC tapped #$recordTapCount state=$recordingState capture=$captureMode")
         when(recordingState) {
-            RecordingUiState.RECORDING -> {
+            RecordingUiState.RECORDING, RecordingUiState.PAUSED -> {
                 recordingState=RecordingUiState.STOPPING
                 notification="Finalizando gravação…"
                 Log.i("RBCineCam","REC stop requested")
@@ -343,7 +356,16 @@ fun CineCamScreen() {
                         notification="Gravando • toque no botão para parar"
                         error=null
                     }
+                    is VideoRecordEvent.Pause -> {
+                        recordingState=RecordingUiState.PAUSED
+                        notification="Gravação pausada"
+                    }
+                    is VideoRecordEvent.Resume -> {
+                        recordingState=RecordingUiState.RECORDING
+                        notification="Gravação retomada"
+                    }
                     is VideoRecordEvent.Status -> {
+                        lastVideoBytes=event.recordingStats.numBytesRecorded
                         // The callback confirms that a recorder is delivering updates.
                         if(recordingState==RecordingUiState.PREPARING) {
                             recordingState=RecordingUiState.RECORDING
@@ -380,6 +402,22 @@ fun CineCamScreen() {
             notification="Falha ao iniciar vídeo"
             Log.e("RBCineCam","REC start exception",ex)
             Toast.makeText(context,error,Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun pauseOrResume() {
+        val active=recording ?: return
+        try {
+            if(recordingState==RecordingUiState.RECORDING) {
+                active.pause()
+                notification="Solicitando pausa…"
+            } else if(recordingState==RecordingUiState.PAUSED) {
+                active.resume()
+                notification="Retomando gravação…"
+            }
+        } catch(ex:Exception) {
+            error="Não foi possível pausar/retomar: ${ex.message}"
+            Log.e("RBCineCam","pause/resume error",ex)
         }
     }
 
@@ -432,21 +470,25 @@ fun CineCamScreen() {
                     Text("RB",color=Color.White,fontWeight=FontWeight.Black)
                     Text("CineCam",color=Red,fontWeight=FontWeight.Bold)
                     Text(if(actualQuality==Quality.UHD) "4K" else if(actualQuality==Quality.FHD) "FHD" else "HD",color=Color.White)
-                    Text("FPS automático",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
+                    Text("FPS auto",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
+                    if(freeSpaceMb>0) Text("${freeSpaceMb/1024} GB livres",color=Color.LightGray,
+                        style=MaterialTheme.typography.labelSmall)
                     Text(if(mic && audioGranted) "MIC ON" else "MIC OFF",color=Color.LightGray)
                     Text(when(recordingState) {
                         RecordingUiState.PREPARING -> "● PREPARANDO"
                         RecordingUiState.RECORDING -> "● REC ${String.format(Locale.US,"%02d:%02d",elapsed/60,elapsed%60)}"
+                        RecordingUiState.PAUSED -> "Ⅱ PAUSADO ${String.format(Locale.US,"%02d:%02d",elapsed/60,elapsed%60)}"
                         RecordingUiState.STOPPING -> "● SALVANDO"
                         RecordingUiState.ERROR -> "● ERRO REC"
                         else -> if(captureMode=="erro") "ERRO CÂMERA" else if(captureMode=="iniciando") "INICIANDO" else "PRONTO"
                     }, color=when(recordingState) {
                         RecordingUiState.RECORDING,RecordingUiState.ERROR -> Red
+                        RecordingUiState.PAUSED -> Gold
                         RecordingUiState.PREPARING,RecordingUiState.STOPPING -> Gold
                         else -> if(captureMode=="erro") Red else Color.Green
                     },fontWeight=FontWeight.Bold)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick={settings=true},enabled=!isRecording) { Icon("configuracoes","Configurações") }
+                    TextButton(onClick={settings=true},enabled=recordingState==RecordingUiState.IDLE) { Icon("configuracoes","Configurações") }
                 }
                 Row(modifier=Modifier.weight(1f).fillMaxWidth().zIndex(3f),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
                     Box(Modifier.weight(1f).fillMaxHeight().background(Color.Black,RoundedCornerShape(6.dp)).zIndex(0f)) {
@@ -472,8 +514,8 @@ fun CineCamScreen() {
                     }
                     Column(Modifier.width(66.dp).zIndex(15f),horizontalAlignment=Alignment.CenterHorizontally,
                         verticalArrangement=Arrangement.SpaceEvenly) {
-                        CineButton("fotografar","Foto",enabled=!isRecording && imageCapture!=null){photograph()}
-                        CineButton("trocar_camera","Câmera",enabled=!isRecording && availableFront) {
+                        CineButton("fotografar","Foto",enabled=recordingState==RecordingUiState.IDLE && imageCapture!=null){photograph()}
+                        CineButton("trocar_camera","Câmera",enabled=recordingState==RecordingUiState.IDLE && availableFront) {
                             lens=if(lens==CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                         }
                         Surface(
@@ -482,31 +524,39 @@ fun CineCamScreen() {
                             shape=CircleShape,
                             border=BorderStroke(2.dp,when(recordingState) {
                                 RecordingUiState.RECORDING -> Color.White
+                                RecordingUiState.PAUSED -> Gold
                                 RecordingUiState.PREPARING,RecordingUiState.STOPPING -> Gold
                                 RecordingUiState.ERROR -> Red
                                 else -> Color.White
                             }),
                             color=when(recordingState) {
                                 RecordingUiState.RECORDING -> Red
+                                RecordingUiState.PAUSED -> Gold.copy(alpha=.32f)
                                 RecordingUiState.PREPARING,RecordingUiState.STOPPING -> Gold.copy(alpha=.35f)
                                 RecordingUiState.ERROR -> Red.copy(alpha=.25f)
                                 else -> Panel
                             }
                         ) {
                             Box(Modifier.size(64.dp),contentAlignment=Alignment.Center) {
-                                Icon(if(recordingState==RecordingUiState.RECORDING) "parar" else "gravar",
+                                Icon(if(recordingState==RecordingUiState.RECORDING || recordingState==RecordingUiState.PAUSED) "parar" else "gravar",
                                     "Gravar ou parar vídeo",Modifier.size(46.dp))
                             }
                         }
                         Text(when(recordingState) {
                             RecordingUiState.RECORDING -> "REC"
+                            RecordingUiState.PAUSED -> "PAUSADO"
                             RecordingUiState.PREPARING -> "AGUARDE"
                             RecordingUiState.STOPPING -> "SALVANDO"
                             RecordingUiState.ERROR -> "ERRO"
                             else -> "GRAVAR"
                         },color=if(recordingState==RecordingUiState.ERROR) Red else Color.White,
                             fontSize=9.sp,fontWeight=FontWeight.Bold,maxLines=1)
-                        CineButton("galeria","Galeria",enabled=!isRecording) { gallery=true }
+                        if(recordingState==RecordingUiState.RECORDING || recordingState==RecordingUiState.PAUSED) {
+                            CineButton(if(recordingState==RecordingUiState.PAUSED) "reproduzir" else "pausar",
+                                if(recordingState==RecordingUiState.PAUSED) "Retomar" else "Pausar") { pauseOrResume() }
+                        } else {
+                            CineButton("galeria","Galeria",enabled=recordingState==RecordingUiState.IDLE) { gallery=true }
+                        }
                     }
                 }
                 Row(Modifier.fillMaxWidth().height(if(toolsOpen) 62.dp else 43.dp).zIndex(15f),
@@ -534,7 +584,7 @@ fun CineCamScreen() {
                         }
                         CineButton("grade_tercos","Grade",highlighted=grid) { grid=!grid }
                         CineButton(if(mic) "microfone" else "microfone_mudo","Áudio",
-                            enabled=!isRecording && !recordingPhase,highlighted=mic) {
+                            enabled=recordingState==RecordingUiState.IDLE,highlighted=mic) {
                             if(!audioGranted && !mic) requestPermissions.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
                             else mic=!mic
                         }
@@ -576,7 +626,10 @@ fun CineCamScreen() {
                     modifier=Modifier.fillMaxWidth()) {
                     Row(horizontalArrangement=Arrangement.SpaceBetween,
                         verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=2.dp)) {
-                        Text("TOQUES ${TouchProbe.count} • ${TouchProbe.last} • ${error ?: notification}",
+                        Text((if(diagnosticsOpen) "TOQUES ${TouchProbe.count} • ${TouchProbe.last} • " else "") +
+                                (error ?: notification) +
+                                (if(lastVideoBytes>0 && (recordingState==RecordingUiState.RECORDING || recordingState==RecordingUiState.PAUSED))
+                                    " • ${lastVideoBytes/(1024*1024)} MB" else ""),
                             color=if(error!=null) Color(0xFFFFACAC) else Color.LightGray,
                             style=MaterialTheme.typography.labelSmall,
                             maxLines=1,overflow=TextOverflow.Ellipsis,
@@ -601,6 +654,10 @@ fun CineCamScreen() {
                             }
                         }
                         Text("Toque na imagem para ajustar foco e exposição automáticos.")
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Text("Diagnóstico de toques")
+                            Switch(checked=diagnosticsOpen,onCheckedChange={diagnosticsOpen=it})
+                        }
                         Text("ISO, obturador e balanço de branco manuais, FPS fixo e LOG exigem implementação Camera2 e testes de hardware. Histograma, zebra e peaking são estimativas sobre a pré-visualização, não instrumentos calibrados.")
                     }
                 },
