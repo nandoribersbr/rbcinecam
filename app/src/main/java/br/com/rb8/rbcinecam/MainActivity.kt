@@ -273,10 +273,10 @@ fun CineCamScreen() {
             }
             supportedQualities = if (info != null) QualitySelector.getSupportedQualities(info) else listOf(Quality.FHD)
             val chosen = if (supportedQualities.contains(quality)) quality else supportedQualities.firstOrNull() ?: Quality.SD
-            val characteristics=if(info!=null) Camera2CameraInfo.from(info) else null
-            val caps=characteristics?.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: intArrayOf()
+            val sourceCapabilities=if(info!=null) Camera2CameraInfo.from(info) else null
+            val caps=sourceCapabilities?.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: intArrayOf()
             rawStillSupported=caps.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_RAW)
-            val sizes=characteristics?.getCameraCharacteristic(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val sizes=sourceCapabilities?.getCameraCharacteristic(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 ?.getOutputSizes(ImageFormat.PRIVATE) ?: emptyArray()
             supports8kSensor=sizes.any { it.width.toLong()*it.height.toLong() >= 7680L*4320L }
             val dynamic=if(info!=null) try {
