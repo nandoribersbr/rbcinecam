@@ -11,6 +11,10 @@ import android.os.StatFs
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
+import android.graphics.ImageFormat
+import android.hardware.camera2.params.StreamConfigurationMap
+import androidx.camera.core.DynamicRange
+import androidx.camera.video.AudioStats
 import android.util.Range
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.Camera2CameraInfo
@@ -171,6 +175,15 @@ fun CineCamScreen() {
     var recordingState by remember { mutableStateOf(RecordingUiState.IDLE) }
     var diagnosticsOpen by remember { mutableStateOf(false) }
     var lastVideoBytes by remember { mutableLongStateOf(0L) }
+    var audioPeak by remember { mutableFloatStateOf(0f) }
+    var audioEnabledState by remember { mutableStateOf(false) }
+    var rawStillSupported by remember { mutableStateOf(false) }
+    var supports8kSensor by remember { mutableStateOf(false) }
+    var hlgSupported by remember { mutableStateOf(false) }
+    var hdrHlgRequested by remember { mutableStateOf(false) }
+    var hdrHlgActive by remember { mutableStateOf(false) }
+    var formatDialog by remember { mutableStateOf(false) }
+    var audioPeakHold by remember { mutableFloatStateOf(0f) }
     var freeSpaceMb by remember { mutableLongStateOf(0L) }
     var recordingErrorCode by remember { mutableStateOf<Int?>(null) }
     var recordTapCount by remember { mutableIntStateOf(0) }
@@ -241,7 +254,7 @@ fun CineCamScreen() {
             }
         }
     }
-    LaunchedEffect(cameraGranted, lens, quality, previewView) {
+    LaunchedEffect(cameraGranted, lens, quality, previewView, hdrHlgRequested) {
         if (!cameraGranted || previewView == null) return@LaunchedEffect
         val view = previewView ?: return@LaunchedEffect
         captureMode = "iniciando"
@@ -260,14 +273,28 @@ fun CineCamScreen() {
             }
             supportedQualities = if (info != null) QualitySelector.getSupportedQualities(info) else listOf(Quality.FHD)
             val chosen = if (supportedQualities.contains(quality)) quality else supportedQualities.firstOrNull() ?: Quality.SD
+            val characteristics=if(info!=null) Camera2CameraInfo.from(info) else null
+            val caps=characteristics?.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: intArrayOf()
+            rawStillSupported=caps.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_RAW)
+            val sizes=characteristics?.getCameraCharacteristic(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?.getOutputSizes(ImageFormat.PRIVATE) ?: emptyArray()
+            supports8kSensor=sizes.any { it.width.toLong()*it.height.toLong() >= 7680L*4320L }
+            val dynamic=if(info!=null) try {
+                info.querySupportedDynamicRanges(setOf(DynamicRange.SDR,DynamicRange.HLG_10_BIT))
+            } catch(_:Exception) {setOf(DynamicRange.SDR)} else setOf(DynamicRange.SDR)
+            hlgSupported=dynamic.contains(DynamicRange.HLG_10_BIT)
+            val canHlg=hdrHlgRequested && hlgSupported
+            hdrHlgActive=false
             actualQuality=chosen
             val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
             val photo = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
-            fun recordingUseCase(q: Quality): VideoCapture<Recorder> {
+            fun recordingUseCase(q: Quality, hlg:Boolean): VideoCapture<Recorder> {
                 val recorder=Recorder.Builder().setQualitySelector(
                     QualitySelector.from(q, FallbackStrategy.lowerQualityOrHigherThan(q))
                 ).build()
-                return VideoCapture.withOutput(recorder)
+                return VideoCapture.Builder(recorder)
+                    .setDynamicRange(if(hlg) DynamicRange.HLG_10_BIT else DynamicRange.SDR)
+                    .build()
             }
             provider.unbindAll()
             var workingVideo:VideoCapture<Recorder>? = null
@@ -280,25 +307,43 @@ fun CineCamScreen() {
             for(q in qualities) {
                 if(q != chosen && !supportedQualities.contains(q)) continue
                 try {
-                    val v=recordingUseCase(q)
+                    val v=recordingUseCase(q,canHlg)
                     provider.unbindAll()
                     val c=provider.bindToLifecycle(lifecycleOwner,selector,preview,photo,v)
-                    workingCamera=c;workingVideo=v;workingPhoto=photo;actualQuality=q
+                    workingCamera=c;workingVideo=v;workingPhoto=photo;actualQuality=q;hdrHlgActive=canHlg
                     captureMode="foto_video"
                     break
                 } catch(ex:Exception) {
                     diagnostics.add("foto+vídeo ${q}: ${ex.javaClass.simpleName}")
                 }
                 try {
-                    val v=recordingUseCase(q)
+                    val v=recordingUseCase(q,canHlg)
                     provider.unbindAll()
                     val c=provider.bindToLifecycle(lifecycleOwner,selector,preview,v)
-                    workingCamera=c;workingVideo=v;workingPhoto=null;actualQuality=q
+                    workingCamera=c;workingVideo=v;workingPhoto=null;actualQuality=q;hdrHlgActive=canHlg
                     captureMode="video"
                     notification="Modo vídeo: foto indisponível nesta configuração"
                     break
                 } catch(ex:Exception) {
                     diagnostics.add("vídeo ${q}: ${ex.javaClass.simpleName}")
+                }
+            }
+            if(workingCamera==null && canHlg) {
+                // HLG is optional: fall back to the proven SDR path instead of breaking recording.
+                hdrHlgRequested=false
+                notification="HLG indisponível nesta combinação. Retornando ao SDR."
+                for(q in qualities) {
+                    if(q!=chosen && !supportedQualities.contains(q)) continue
+                    try {
+                        val v=recordingUseCase(q,false)
+                        provider.unbindAll()
+                        val c=provider.bindToLifecycle(lifecycleOwner,selector,preview,v)
+                        workingCamera=c;workingVideo=v;workingPhoto=null;actualQuality=q
+                        hdrHlgActive=false;captureMode="video"
+                        break
+                    } catch(ex:Exception) {
+                        diagnostics.add("SDR ${q}: ${ex.javaClass.simpleName}")
+                    }
                 }
             }
             if(workingCamera==null || workingVideo==null) {
@@ -415,6 +460,9 @@ fun CineCamScreen() {
                 Log.i("RBCineCam","Recording event ${event.javaClass.simpleName}")
                 when(event) {
                     is VideoRecordEvent.Start -> {
+                        audioEnabledState=mic && audioGranted
+                        audioPeak=0f
+                        audioPeakHold=0f
                         recordingState=RecordingUiState.RECORDING
                         recordingPhase=false
                         isRecording=true
@@ -431,6 +479,10 @@ fun CineCamScreen() {
                     }
                     is VideoRecordEvent.Status -> {
                         lastVideoBytes=event.recordingStats.numBytesRecorded
+                        val stats=event.recordingStats.audioStats
+                        audioEnabledState=stats.audioState==AudioStats.AUDIO_STATE_ACTIVE
+                        audioPeak=if(audioEnabledState) stats.audioAmplitude.toFloat().coerceIn(0f,1f) else 0f
+                        if(audioPeak>audioPeakHold) audioPeakHold=audioPeak
                         // The callback confirms that a recorder is delivering updates.
                         if(recordingState==RecordingUiState.PREPARING) {
                             recordingState=RecordingUiState.RECORDING
@@ -439,6 +491,8 @@ fun CineCamScreen() {
                         }
                     }
                     is VideoRecordEvent.Finalize -> {
+                        audioPeak=0f
+                        audioEnabledState=false
                         recording=null
                         recordingPhase=false
                         isRecording=false
@@ -642,6 +696,8 @@ fun CineCamScreen() {
                     Text("CineCam",color=Red,fontWeight=FontWeight.Bold)
                     Text(if(actualQuality==Quality.UHD) "4K" else if(actualQuality==Quality.FHD) "FHD" else "HD",color=Color.White)
                     Text("FPS auto",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
+                    Text(if(hdrHlgActive) "HLG10 HDR" else "SDR",color=if(hdrHlgActive) Gold else Color.LightGray,
+                        style=MaterialTheme.typography.labelSmall)
                     if(freeSpaceMb>0) Text("${freeSpaceMb/1024} GB livres",color=Color.LightGray,
                         style=MaterialTheme.typography.labelSmall)
                     Text(if(mic && audioGranted) "MIC ON" else "MIC OFF",color=Color.LightGray)
@@ -738,6 +794,16 @@ fun CineCamScreen() {
                         }
                     }
                 }
+                AudioLevelMeter(level=audioPeak, peak=audioPeakHold,
+                    active=(recordingState==RecordingUiState.RECORDING && audioEnabledState),
+                    status=when {
+                        recordingState==RecordingUiState.PAUSED -> "PAUSA"
+                        !mic -> "MIC OFF"
+                        !audioGranted -> "SEM PERMISSÃO"
+                        recordingState!=RecordingUiState.RECORDING -> "MEDIÇÃO AO GRAVAR"
+                        !audioEnabledState -> "SEM SINAL"
+                        else -> "MIC"
+                    })
                 Row(Modifier.fillMaxWidth().height(if(toolsOpen) 62.dp else 43.dp).zIndex(15f),
                     horizontalArrangement=Arrangement.SpaceBetween,
                     verticalAlignment=Alignment.CenterVertically) {
@@ -762,6 +828,7 @@ fun CineCamScreen() {
                             }
                         }
                         CineButton("grade_tercos","Grade",highlighted=grid) { grid=!grid }
+                        CineButton("informacoes","Formatos") { formatDialog=true }
                         CineButton(if(mic) "microfone" else "microfone_mudo","Áudio",
                             enabled=recordingState==RecordingUiState.IDLE,highlighted=mic) {
                             if(!audioGranted && !mic) requestPermissions.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
@@ -865,6 +932,29 @@ fun CineCamScreen() {
                     }
                 }
             }
+            if(formatDialog) AlertDialog(onDismissRequest={formatDialog=false},
+                title={Text("Formatos de captura")},
+                text={
+                    Column(verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                        Text("SDR: gravação padrão disponível.")
+                        Text(if(rawStillSupported) "RAW de fotografia: sensor compatível; DNG ainda não implementado."
+                            else "RAW de fotografia indisponível nesta lente.")
+                        Text("Vídeo RAW: não implementado. Não equivale a foto DNG.")
+                        Text("LOG cinematográfico: não implementado. HLG10 é HDR, não LOG.")
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Text("HLG 10-bit",modifier=Modifier.weight(1f))
+                            Switch(checked=hdrHlgRequested,
+                                enabled=hlgSupported && recordingState==RecordingUiState.IDLE,
+                                onCheckedChange={hdrHlgRequested=it;formatDialog=false})
+                        }
+                        Text(if(hlgSupported) "HLG10 anunciado; o modo só será ativado após reabrir sessão e testar compatibilidade."
+                            else "HLG10 não anunciado pela câmera atual.")
+                        Text(if(supports8kSensor) "Sensor anuncia saída >=8K; gravação 8K ainda não implementada."
+                            else "Sem saída >=8K confirmada nesta lente.")
+                        Text("Ampliação para 8K por IA não implementada. Não é captura 8K real.")
+                    }
+                },
+                confirmButton={TextButton(onClick={formatDialog=false}) {Text("Fechar")}})
             if(settings) AlertDialog(onDismissRequest={settings=false},
                 title={Text("Configurações de captura")},
                 text={
