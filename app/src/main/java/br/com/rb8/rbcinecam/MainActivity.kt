@@ -746,6 +746,19 @@ fun CineCamScreen() {
                                 }
                             }
                         }
+                        Box(
+                            Modifier.align(Alignment.BottomEnd).padding(end=10.dp,bottom=12.dp)
+                                .width(300.dp).zIndex(20f)
+                                .background(Color(0xE5101721),RoundedCornerShape(10.dp))
+                                .padding(horizontal=8.dp,vertical=5.dp)
+                        ) {
+                            LiveAudioHud(
+                                microphoneEnabled=mic && audioGranted,
+                                recordingState=recordingState,
+                                cameraAmplitude=audioPeak,
+                                cameraAudioActive=audioEnabledState
+                            )
+                        }
                     }
                     Column(Modifier.width(66.dp).zIndex(15f),horizontalAlignment=Alignment.CenterHorizontally,
                         verticalArrangement=Arrangement.SpaceEvenly) {
@@ -794,16 +807,6 @@ fun CineCamScreen() {
                         }
                     }
                 }
-                AudioLevelMeter(level=audioPeak, peak=audioPeakHold,
-                    active=(recordingState==RecordingUiState.RECORDING && audioEnabledState),
-                    status=when {
-                        recordingState==RecordingUiState.PAUSED -> "PAUSA"
-                        !mic -> "MIC OFF"
-                        !audioGranted -> "SEM PERMISSÃO"
-                        recordingState!=RecordingUiState.RECORDING -> "MEDIÇÃO AO GRAVAR"
-                        !audioEnabledState -> "SEM SINAL"
-                        else -> "MIC"
-                    })
                 Row(Modifier.fillMaxWidth().height(if(toolsOpen) 62.dp else 43.dp).zIndex(15f),
                     horizontalArrangement=Arrangement.SpaceBetween,
                     verticalAlignment=Alignment.CenterVertically) {
